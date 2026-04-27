@@ -3,6 +3,7 @@
 // Date: 4/22/2026
 
 #include "CPU.h"
+#include "kernel.h"
 
 // Private function prototypes
 uint32_t ALU(CPU *cpu, uint8_t op, uint32_t a, uint32_t b);
@@ -31,9 +32,17 @@ void Run(CPU *cpu, RAM *ram) {
     uint8_t imm8;
     int32_t rel8;
     uint32_t ret;
+    uint32_t dest;
 
     while (1) {
 
+        // Kernel Call
+        if (cpu->eip >= 0x80000000) {
+            HandleKernelCall(cpu, ram);
+            continue;
+        }
+
+        // Standard Opcode
         uint8_t opcode = ReadByte(ram, cpu->eip++);
 
         switch (opcode) {
@@ -490,10 +499,10 @@ void Run(CPU *cpu, RAM *ram) {
 
                     // CALL
                     case 2:
+                        dest = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         cpu->esp -= 4;
                         Write32(ram, cpu->esp, cpu->eip);
-
-                        cpu->eip = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                        cpu->eip = dest;
                         break;
 
                     // PUSH
