@@ -33,8 +33,17 @@ void Run(CPU *cpu, RAM *ram) {
     int32_t rel8;
     uint32_t ret;
     uint32_t dest;
+    uint16_t imm16;
 
     while (1) {
+
+        // Process Exit
+        if (!cpu->eip) {
+            printf("EIP is 0x00000000!\n");
+            State(cpu);
+            exit(1);
+            break;
+        }
 
         // Kernel Call
         if (cpu->eip >= 0x80000000) {
@@ -43,6 +52,7 @@ void Run(CPU *cpu, RAM *ram) {
         }
 
         // Standard Opcode
+        // printf("Executing at %08X\n", cpu->eip);
         uint8_t opcode = ReadByte(ram, cpu->eip++);
 
         switch (opcode) {
@@ -251,6 +261,22 @@ void Run(CPU *cpu, RAM *ram) {
                         write_rm32(cpu, ram, reg_ptrs, mod, rm, ALU(cpu, 4, a, b));
                         break;
 
+                    // SUB
+                    case 5:
+                        a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                        b = Read32(ram, cpu->eip);
+                        cpu->eip += 4;
+                        write_rm32(cpu, ram, reg_ptrs, mod, rm, ALU(cpu, 5, a, b));
+                        break;
+
+                    // CMP
+                    case 7:
+                        a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                        b = Read32(ram, cpu->eip);
+                        cpu->eip += 4;
+                        ALU(cpu, 7, a, b);
+                        break;
+
                     default:
                         printf("Unsupported 0x81 /%hhx\n", reg);
                         State(cpu);
@@ -396,6 +422,18 @@ void Run(CPU *cpu, RAM *ram) {
                 break;
 
             }
+
+            // RET imm16
+            case 0xC2:
+                imm16 = ReadByte(ram, cpu->eip) | (ReadByte(ram, cpu->eip + 1) << 8);
+                cpu->eip += 2;
+
+                ret = Read32(ram, cpu->esp);
+                cpu->esp += 4;
+
+                cpu->esp += imm16;
+                cpu->eip = ret;
+                break;
 
             // RET
             case 0xC3:
