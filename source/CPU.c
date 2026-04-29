@@ -35,6 +35,9 @@ void Run(CPU *cpu, RAM *ram) {
     uint32_t dest;
     uint16_t imm16;
 
+    // Prefixes
+    uint8_t prefix_rep;
+
     while (1) {
 
         // Process Exit
@@ -46,13 +49,24 @@ void Run(CPU *cpu, RAM *ram) {
         }
 
         // Kernel Call
-        if (cpu->eip >= 0x80000000) {
+        if (cpu->eip >= 0x80000000 && cpu->eip < 0x80000200) {
             HandleKernelCall(cpu, ram);
             continue;
         }
 
+        // Prefixes
+        prefix_rep = 0;
+        while (1) {
+            uint8_t prefix = ReadByte(ram, cpu->eip);
+            if (prefix == 0xF3) {
+                prefix_rep = 1;
+                cpu->eip++;
+                continue;
+            }
+            break;
+        }
+
         // Standard Opcode
-        // printf("Executing at %08X\n", cpu->eip);
         uint8_t opcode = ReadByte(ram, cpu->eip++);
 
         switch (opcode) {
@@ -374,6 +388,20 @@ void Run(CPU *cpu, RAM *ram) {
                 cpu->eip += 4;
                 Write32(ram, imm32, cpu->eax);
                 break;
+            
+            // STOSD
+            case 0xAB:
+                if (prefix_rep) {
+                    while (cpu->ecx != 0) {
+                        Write32(ram, cpu->edi, cpu->eax);
+                        cpu->edi += 4;
+                        cpu->ecx--;
+                    }
+                } else {
+                    Write32(ram, cpu->edi, cpu->eax);
+                    cpu->edi += 4;
+                }
+                break;
 
             // MOV r32, imm32
             case 0xB8:
@@ -567,7 +595,6 @@ void Run(CPU *cpu, RAM *ram) {
 
         // Instruction Counter
         cpu->counter++;
-
     }
 
 }

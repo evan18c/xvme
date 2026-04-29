@@ -26,7 +26,7 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
             break;
         }
 
-        // Inknown Kernel Call
+        // Unknown Kernel Call
         default:
             printf("Unknown kernel call %d\n", ordinal);
             State(cpu);
