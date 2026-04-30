@@ -73,6 +73,19 @@ void Run(CPU *cpu, RAM *ram) {
 
         switch (opcode) {
 
+            // ADD r32, r/m32
+            case 0x03:
+                modrm = ReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                a = *reg_ptrs[reg];
+                b = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+
+                *reg_ptrs[reg] = ALU(cpu, 0, a, b);
+                break;
+
             // ADD EAX, imm32
             case 0x05:
                 a = cpu->eax;
@@ -413,6 +426,22 @@ void Run(CPU *cpu, RAM *ram) {
                 imm32 = Read32(ram, cpu->eip);
                 cpu->eip += 4;
                 Write32(ram, imm32, cpu->eax);
+                break;
+
+            // MOVSD
+            case 0xA5:
+                if (prefix_rep) {
+                    while (cpu->ecx != 0) {
+                        Write32(ram, cpu->edi, Read32(ram, cpu->esi));
+                        cpu->edi += 4;
+                        cpu->esi += 4;
+                        cpu->ecx--;
+                    }
+                } else {
+                    Write32(ram, cpu->edi, Read32(ram, cpu->esi));
+                    cpu->edi += 4;
+                    cpu->esi += 4;
+                }
                 break;
             
             // STOSD
