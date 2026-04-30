@@ -16,6 +16,13 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
 
     switch (ordinal) {
 
+        // __stdcall HalReturnToFirmware (1 arg)
+        case 49: {
+            printf("HalReturnToFirmware();\n");
+            cpu->esp += 4 * 1;
+            break;
+        }
+
         // __stdcall MmPersistContiguousMemory (3 args)
         case 178: {
             printf("MmPersistContiguousMemory();\n");
@@ -29,6 +36,13 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
             uint32_t StartRoutine = Read32(ram, cpu->esp + 4 * 5);
             cpu->esp += 4 * 10;
             cpu->eax = 0;
+            break;
+        }
+
+        // __stdcall RtlNtStatusToDosError (1 arg)
+        case 301: {
+            printf("RtlNtStatusToDosError();\n");
+            cpu->esp += 4 * 1;
             break;
         }
 
