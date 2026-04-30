@@ -58,6 +58,9 @@ void xbox() {
     AddRegion(ram, 0x80000000, 512);
     *(uint32_t *)RawPointer(ram, 0x800000A4) = 0x81000000; // xboxkrnl.exe::LaunchDataPage
 
+    // Temp FS region, FS = 0
+    AddRegion(ram, 0x00000000, 0x1000);
+
     // Running
     printf("\n");
     AddRegion(ram, 0x03F00000, 0x100000); // stack

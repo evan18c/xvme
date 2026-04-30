@@ -19,6 +19,7 @@ void State(CPU *cpu) {
     printf("EBP: 0x%08X ESP: 0x%08X\n", cpu->ebp, cpu->esp);
     printf("EIP: 0x%08X\n", cpu->eip);
     printf("ZF: %hhX SF: %hhX CF: %hhX OF: %hhX\n", cpu->ZF, cpu->SF, cpu->CF, cpu->OF);
+    printf("FS: 0x%08X GS: 0x%08X\n", cpu->FS, cpu->GS);
     printf("COUNTER: %llu\n", cpu->counter);
 }
 
@@ -39,6 +40,7 @@ void Run(CPU *cpu, RAM *ram) {
 
     // Prefixes
     uint8_t prefix_rep;
+    uint8_t prefix_fs;
 
     while (1) {
 
@@ -58,13 +60,22 @@ void Run(CPU *cpu, RAM *ram) {
 
         // Prefixes
         prefix_rep = 0;
+        prefix_fs = 0;
         while (1) {
             uint8_t prefix = ReadByte(ram, cpu->eip);
+
             if (prefix == 0xF3) {
                 prefix_rep = 1;
                 cpu->eip++;
                 continue;
             }
+
+            if (prefix == 0x64) {
+                prefix_fs = 1;
+                cpu->eip++;
+                continue;
+            }
+
             break;
         }
 

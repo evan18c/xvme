@@ -16,6 +16,7 @@ typedef struct {
     uint32_t ebp, esp;
     uint32_t eip;
     uint8_t CF, PF, AF, ZF, SF, TF, IF, DF, OF, RF;
+    uint32_t CS, DS, SS, ES, FS, GS;
     uint64_t counter;
 } CPU;
 
