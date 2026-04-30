@@ -265,38 +265,21 @@ void Run(CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                switch (reg) {
+                addr = 0;
+                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-                    // AND
-                    case 4:
-                        a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
-                        b = Read32(ram, cpu->eip);
-                        cpu->eip += 4;
-                        write_rm32(cpu, ram, reg_ptrs, mod, rm, ALU(cpu, 4, a, b));
-                        break;
+                a = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
 
-                    // SUB
-                    case 5:
-                        a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
-                        b = Read32(ram, cpu->eip);
-                        cpu->eip += 4;
-                        write_rm32(cpu, ram, reg_ptrs, mod, rm, ALU(cpu, 5, a, b));
-                        break;
+                b = Read32(ram, cpu->eip);
+                cpu->eip += 4;
 
-                    // CMP
-                    case 7:
-                        a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
-                        b = Read32(ram, cpu->eip);
-                        cpu->eip += 4;
-                        ALU(cpu, 7, a, b);
-                        break;
+                temp = ALU(cpu, reg, a, b);
 
-                    default:
-                        printf("Unsupported 0x81 /%hhx\n", reg);
-                        State(cpu);
-                        exit(1);
-
+                if (reg != 7) {
+                    if (mod == 3) *reg_ptrs[rm] = temp;
+                    else Write32(ram, addr, temp);
                 }
+
                 break;
 
             // ADD, SUB, CMP, AND, OR, XOR r/m32, imm8
@@ -335,7 +318,7 @@ void Run(CPU *cpu, RAM *ram) {
                 a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                 b = *reg_ptrs[reg];
 
-                ALU(cpu, 4, a, b);
+                ALU(cpu, 4, a, b); // AND
                 
                 break;
             
@@ -430,18 +413,23 @@ void Run(CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                uint32_t val = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                addr = 0;
+                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+
+                uint32_t val = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
                 uint8_t imm8 = ReadByte(ram, cpu->eip++) & 0x1F;
-                uint32_t result;
+                uint32_t result = val;
 
                 switch (reg) {
 
                     // SHR
                     case 5:
-                        result = val >> imm8;
-                        cpu->CF = (imm8 != 0) ? ((val >> (32 - imm8 ))) : cpu->CF;
-                        cpu->ZF = (result == 0);
-                        cpu->SF = (result >> 31) & 1;
+                        if (imm8 != 0) {
+                            result = val >> imm8;
+                            cpu->CF = (val >> (imm8 - 1)) & 1;
+                            cpu->ZF = (result == 0);
+                            cpu->SF = (result >> 31) & 1;
+                        }
                         break;
 
                     default:
@@ -451,7 +439,8 @@ void Run(CPU *cpu, RAM *ram) {
 
                 }
 
-                write_rm32(cpu, ram, reg_ptrs, mod, rm, result);
+                if (mod == 3) *reg_ptrs[rm] = result;
+                else Write32(ram, addr, result);
 
                 break;
 
@@ -483,16 +472,14 @@ void Run(CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                addr = mod == 3 ? 0 : calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                addr = 0;
+                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
                 imm32 = Read32(ram, cpu->eip);
                 cpu->eip += 4;
 
-                if (mod == 3) {
-                    *reg_ptrs[rm] = imm32;
-                } else {
-                    Write32(ram, addr, imm32);
-                }
+                if (mod == 3) *reg_ptrs[rm] = imm32;
+                else Write32(ram, addr, imm32);
                 break;
 
             // INT3
@@ -530,13 +517,17 @@ void Run(CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
+                addr = 0;
+                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                a = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
+
                 switch (reg) {
 
                     // NEG
                     case 3:
-                        a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         temp = 0 - a;
-                        write_rm32(cpu, ram, reg_ptrs, mod, rm, 0 - a);
+                        if (mod == 3) *reg_ptrs[rm] = temp;
+                        else Write32(ram, addr, temp);
                         cpu->ZF = (temp == 0);
                         cpu->SF = (temp >> 31) & 1;
                         cpu->CF = (a != 0);
@@ -545,14 +536,14 @@ void Run(CPU *cpu, RAM *ram) {
 
                     // IDIV
                     case 7: {
-                        int64_t dividend = ((int64_t)cpu->edx << 32) | cpu->eax;
-                        int32_t divisor = (int32_t)read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                        int64_t dividend = ((int64_t)(int32_t)cpu->edx << 32) | (uint32_t)cpu->eax;
+                        int32_t divisor = (int32_t)a;
 
                         int64_t quotient = dividend / divisor;
                         int64_t remainder = dividend % divisor;
 
-                        cpu->eax = (int32_t)quotient;
-                        cpu->edx = (int32_t)remainder;
+                        cpu->eax = (uint32_t)(int32_t)quotient;
+                        cpu->edx = (uint32_t)(int32_t)remainder;
 
                         break;
                     }
@@ -584,10 +575,12 @@ void Run(CPU *cpu, RAM *ram) {
                         break;
 
                     // PUSH
-                    case 6:
+                    case 6: {
+                        uint32_t val = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         cpu->esp -= 4;
-                        Write32(ram, cpu->esp, read_rm32(cpu, ram, reg_ptrs, mod, rm));
+                        Write32(ram, cpu->esp, val);
                         break;
+                    }
 
                     default:
                         printf("Unsupported 0xFF /%hhX\n", reg);
