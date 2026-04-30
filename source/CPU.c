@@ -258,7 +258,7 @@ void Run(CPU *cpu, RAM *ram) {
                 if (!cpu->ZF && cpu->SF == cpu->OF) cpu->eip += rel8;
                 break;
 
-            // ADD, OR, ADC, SBB, AND, SUB, XOR, CMP
+            // ADD, OR, ADC, SBB, AND, SUB, XOR, CMP r/m32, imm32
             case 0x81:
                 modrm = ReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
@@ -300,24 +300,30 @@ void Run(CPU *cpu, RAM *ram) {
                 break;
 
             // ADD, SUB, CMP, AND, OR, XOR r/m32, imm8
-            case 0x83:
+            case 0x83: {
                 modrm = ReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                imm8 = (int8_t)ReadByte(ram, cpu->eip++);
-                a = read_rm32(cpu, ram, reg_ptrs, mod, rm);
-                b = imm8;
+                addr = 0;
+                if (mod != 3) {
+                    addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                }
+
+                a = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
+                b = (int32_t)(int8_t)ReadByte(ram, cpu->eip++);
 
                 temp = ALU(cpu, reg, a, b);
 
                 // not CMP
                 if (reg != 7) {
-                    write_rm32(cpu, ram, reg_ptrs, mod, rm, temp);
+                    if (mod == 3) *reg_ptrs[rm] = temp;
+                    else Write32(ram, addr, temp);
                 }
 
                 break;
+            }
 
             // TEST r/m32, r32
             case 0x85:
@@ -477,10 +483,16 @@ void Run(CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
+                addr = mod == 3 ? 0 : calc_addr(cpu, ram, reg_ptrs, mod, rm);
+
                 imm32 = Read32(ram, cpu->eip);
                 cpu->eip += 4;
 
-                write_rm32(cpu, ram, reg_ptrs, mod, rm, imm32);
+                if (mod == 3) {
+                    *reg_ptrs[rm] = imm32;
+                } else {
+                    Write32(ram, addr, imm32);
+                }
                 break;
 
             // INT3
