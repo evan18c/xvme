@@ -10,6 +10,8 @@ uint32_t ALU(CPU *cpu, uint8_t op, uint32_t a, uint32_t b);
 uint32_t read_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 void write_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint32_t val);
 uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
+uint8_t *get_reg8_ptr(CPU *cpu, uint8_t rm);
+void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val);
 
 void State(CPU *cpu) {
     printf("EAX: 0x%08X EBX: 0x%08X ECX: 0x%08X EDX: 0x%08X\n", cpu->eax, cpu->ebx, cpu->ecx, cpu->edx);
@@ -78,6 +80,33 @@ void Run(CPU *cpu, RAM *ram) {
                 cpu->eip += 4;
                 cpu->eax = ALU(cpu, 0, a, b);
                 break;
+
+            // 2 byte opcodes
+            case 0x0F: {
+
+                uint8_t opcode2 = ReadByte(ram, cpu->eip++);
+
+                switch (opcode2) {
+
+                    // SETNZ
+                    case 0x95:
+                        modrm = ReadByte(ram, cpu->eip++);
+                        mod = (modrm >> 6) & 3;
+                        reg = (modrm >> 3) & 7;
+                        rm = modrm & 7;
+
+                        write_rm8(cpu, ram, reg_ptrs, mod, rm, !cpu->ZF);
+                        break;
+
+                    // Unsupported
+                    default:
+                        printf("Unknown Two-Byte Instruction 0x0F 0x%hhX at 0x%08X\n", opcode2, cpu->eip - 1);
+                        State(cpu);
+                        exit(1);
+                }
+
+            }
+            break;
 
             // SUB r32, r/m32
             case 0x2B:
@@ -210,6 +239,14 @@ void Run(CPU *cpu, RAM *ram) {
                 cpu->esp -= 4;
                 int32_t val = (int8_t)imm8;
                 Write32(ram, cpu->esp, val);
+                break;
+
+            // JB rel8
+            // JC rel8
+            // JNAE rel8
+            case 0x72:
+                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                if (cpu->CF) cpu->eip += rel8;
                 break;
 
             // JAE rel8
@@ -772,4 +809,29 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 
     printf("Invalid mod in calc_addr\n");
     exit(1);
+}
+
+// rm -> reg *
+uint8_t *get_reg8_ptr(CPU *cpu, uint8_t rm) {
+    switch (rm) {
+        case 0: return (uint8_t *)&cpu->eax; // AL
+        case 1: return (uint8_t *)&cpu->ecx; // CL
+        case 2: return (uint8_t *)&cpu->edx; // DL
+        case 3: return (uint8_t *)&cpu->ebx; // BL
+
+        case 4: return ((uint8_t *)&cpu->eax) + 1; // AH
+        case 5: return ((uint8_t *)&cpu->ecx) + 1; // CH
+        case 6: return ((uint8_t *)&cpu->edx) + 1; // DH
+        case 7: return ((uint8_t *)&cpu->ebx) + 1; // BH
+    }
+}
+
+// Writes to R/M address (1 byte)
+void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val) {
+    if (mod == 3) {
+        *get_reg8_ptr(cpu, rm) = val;
+        return;
+    }
+    uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+    WriteByte(ram, addr, val);
 }
