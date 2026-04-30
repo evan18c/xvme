@@ -16,11 +16,17 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
 
     switch (ordinal) {
 
+        // __stdcall MmPersistContiguousMemory (3 args)
+        case 178: {
+            printf("MmPersistContiguousMemory();\n");
+            cpu->esp += 4 * 3;
+            break;
+        }
+
         // __stdcall PsCreateSystemThreadEx (10 args)
         case 255: {
             printf("PsCreateSystemThreadEx();\n");
             uint32_t StartRoutine = Read32(ram, cpu->esp + 4 * 5);
-            printf("StartRoutine: %08X\n", StartRoutine);
             cpu->esp += 4 * 10;
             cpu->eax = 0;
             break;

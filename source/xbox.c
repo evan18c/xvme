@@ -51,9 +51,12 @@ void xbox() {
     uint32_t KernelImageThunkAddress = header->KernelImageThunkAddress ^ 0x5B6D40B6;
     printf("KernelImageThunkAddress: 0x%08X\n", KernelImageThunkAddress);
 
-    // Kernel Temp
+    // Kernel LaunchDataPage
+    AddRegion(ram, 0x81000000, 0x1000);
+
+    // Kernel Imports
     AddRegion(ram, 0x80000000, 512);
-    memset(RawPointer(ram, 0x80000000), 0xCC, 512);
+    *(uint32_t *)RawPointer(ram, 0x800000A4) = 0x81000000; // xboxkrnl.exe::LaunchDataPage
 
     // Running
     printf("\n");
