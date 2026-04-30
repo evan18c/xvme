@@ -46,9 +46,9 @@ void Run(CPU *cpu, RAM *ram) {
 
         // Process Exit
         if (!cpu->eip) {
-            printf("EIP is 0x00000000!\n");
+            printf("\nProcess finished.\n");
             State(cpu);
-            exit(1);
+            exit(0);
             break;
         }
 
@@ -557,6 +557,13 @@ void Run(CPU *cpu, RAM *ram) {
 
                 if (mod == 3) *reg_ptrs[rm] = imm32;
                 else Write32(ram, addr, imm32);
+                break;
+            
+            // LEAVE
+            case 0xC9:
+                cpu->esp = cpu->ebp;
+                cpu->ebp = Read32(ram, cpu->esp);
+                cpu->esp += 4;
                 break;
 
             // INT3

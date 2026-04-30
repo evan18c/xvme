@@ -61,11 +61,17 @@ void xbox() {
     // Temp FS region, FS = 0
     AddRegion(ram, 0x00000000, 0x1000);
 
-    // Running
-    printf("\n");
+    // Adding STACK
     AddRegion(ram, 0x03F00000, 0x100000); // stack
     cpu->esp = 0x04000000;
+
+    // Entry Point
+    cpu->esp -= 4;
+    *(uint32_t *)RawPointer(ram, cpu->esp) = 0x00000000;
     cpu->eip = EntryPoint;
+
+    // Running
+    printf("\n");
     Run(cpu, ram);
 
     printf("End of xbox();\n");

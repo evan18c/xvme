@@ -30,6 +30,13 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
             break;
         }
 
+        // __stdcall NtClose (1 arg)
+        case 187: {
+            printf("NtClose();\n");
+            cpu->esp += 4 * 1;
+            break;
+        }
+
         // __stdcall PsCreateSystemThreadEx (10 args)
         case 255: {
             printf("PsCreateSystemThreadEx();\n");
