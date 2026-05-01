@@ -3,11 +3,12 @@
 // Date: 4/27/2026
 
 #include "kernel.h"
+#include "xbox.h"
 #include "CPU.h"
 #include "RAM.h"
 
 // Intercepts Kernel calls by the CPU
-void HandleKernelCall(CPU *cpu, RAM *ram) {
+void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
 
     // Ordinal
     uint32_t ordinal = cpu->eip - 0x80000000;

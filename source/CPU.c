@@ -56,7 +56,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
         // Kernel Call
         if (cpu->eip >= 0x80000000 && cpu->eip < 0x80000200) {
-            HandleKernelCall(cpu, ram);
+            HandleKernelCall(xbox, cpu, ram);
             continue;
         }
 

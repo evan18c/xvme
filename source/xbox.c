@@ -14,8 +14,11 @@ Xbox *XboxNew() {
     // Create Xbox
     Xbox *xbox = calloc(1, sizeof(Xbox));
 
-    // Create CPU + RAM
-    xbox->cpu = calloc(1, sizeof(CPU));
+    // Create thread0
+    xbox->threads[0] = calloc(1, sizeof(CPU));
+    xbox->thread_count++;
+
+    // Create RAM
     xbox->ram = calloc(1, sizeof(RAM));
 
     // Return
@@ -57,7 +60,7 @@ void XboxLoadXBE(Xbox *xbox, const char *xbe) {
     // Entry Point
     uint32_t EntryPoint = header->EntryPoint ^ 0xA8FC57AB;
     printf("EntryPoint: 0x%08X\n", EntryPoint);
-    xbox->cpu->eip = EntryPoint;
+    xbox->threads[0]->eip = EntryPoint;
 
     // Kernel Imports
     uint32_t KernelImageThunkAddress = header->KernelImageThunkAddress ^ 0x5B6D40B6;
@@ -80,13 +83,35 @@ void XboxRun(Xbox *xbox) {
 
     // Adding STACK
     RAMAddRegion(xbox->ram, 0x03F00000, 0x100000); // stack
-    xbox->cpu->esp = 0x04000000;
+    xbox->threads[0]->esp = 0x04000000;
 
     // Return Address
-    xbox->cpu->esp -= 4;
-    *(uint32_t *)RAMRawPointer(xbox->ram, xbox->cpu->esp) = 0x00000000;
+    xbox->threads[0]->esp -= 4;
+    *(uint32_t *)RAMRawPointer(xbox->ram, xbox->threads[0]->esp) = 0x00000000;
 
     // Running
     printf("\n");
-    CPURun(xbox, xbox->cpu, xbox->ram);
+    CPURun(xbox, xbox->threads[0], xbox->ram);
+}
+
+// Spawns new thread
+void XboxCreateThread(Xbox *xbox, uint32_t entry) {
+
+    // create cpu
+    xbox->threads[xbox->thread_count] = calloc(1, sizeof(CPU));
+
+    // stack
+    uint32_t stack_addr = 0x04000000 + 0x100000 * xbox->thread_count;
+    RAMAddRegion(xbox->ram, stack_addr - 0x100000, 0x100000);
+    xbox->threads[xbox->thread_count]->esp = stack_addr;
+
+    // ret
+    xbox->threads[xbox->thread_count]->esp -= 4;
+    *(uint32_t *)RAMRawPointer(xbox->ram, xbox->threads[xbox->thread_count]->esp) = 0x00000000;
+
+    // Run
+    printf("XboxCreateThread(); at %08X\n", entry);
+    xbox->thread_count++;
+    CPURun(xbox, xbox->threads[xbox->thread_count-1], xbox->ram);
+
 }

@@ -5,9 +5,10 @@
 #define KERNEL_H
 
 // Forward
+typedef struct Xbox Xbox;
 typedef struct CPU CPU;
 typedef struct RAM RAM;
 
-void HandleKernelCall(CPU *cpu, RAM *ram);
+void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram);
 
 #endif
