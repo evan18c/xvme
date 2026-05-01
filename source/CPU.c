@@ -13,7 +13,7 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 uint8_t *get_reg8_ptr(CPU *cpu, uint8_t rm);
 void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val);
 
-void State(CPU *cpu) {
+void CPUState(CPU *cpu) {
     printf("EAX: 0x%08X EBX: 0x%08X ECX: 0x%08X EDX: 0x%08X\n", cpu->eax, cpu->ebx, cpu->ecx, cpu->edx);
     printf("ESI: 0x%08X EDI: 0x%08X\n", cpu->esi, cpu->edi);
     printf("EBP: 0x%08X ESP: 0x%08X\n", cpu->ebp, cpu->esp);
@@ -23,7 +23,7 @@ void State(CPU *cpu) {
     printf("COUNTER: %llu\n", cpu->counter);
 }
 
-void Run(CPU *cpu, RAM *ram) {
+void CPURun(CPU *cpu, RAM *ram) {
 
     // Init
     uint32_t *reg_ptrs[8] = {&cpu->eax, &cpu->ecx, &cpu->edx, &cpu->ebx, &cpu->esp, &cpu->ebp, &cpu->esi, &cpu->edi};
@@ -47,7 +47,7 @@ void Run(CPU *cpu, RAM *ram) {
         // Process Exit
         if (!cpu->eip) {
             printf("\nProcess finished.\n");
-            State(cpu);
+            CPUState(cpu);
             exit(0);
             break;
         }
@@ -134,7 +134,7 @@ void Run(CPU *cpu, RAM *ram) {
                     // Unsupported
                     default:
                         printf("Unknown Two-Byte Instruction 0x0F 0x%hhX at 0x%08X\n", opcode2, cpu->eip - 1);
-                        State(cpu);
+                        CPUState(cpu);
                         exit(1);
                 }
 
@@ -520,7 +520,7 @@ void Run(CPU *cpu, RAM *ram) {
 
                     default:
                         printf("Unspported 0xC1 /%hhx\n", reg);
-                        State(cpu);
+                        CPUState(cpu);
                         exit(1);
 
                 }
@@ -578,7 +578,7 @@ void Run(CPU *cpu, RAM *ram) {
             // INT3
             case 0xCC:
                 printf("INT3\n");
-                State(cpu);
+                CPUState(cpu);
                 exit(0);
 
             // CALL rel32
@@ -644,7 +644,7 @@ void Run(CPU *cpu, RAM *ram) {
 
                     default:
                         printf("Unspported 0xF7 /%hhX\n", reg);
-                        State(cpu);
+                        CPUState(cpu);
                         exit(1);
 
                 }
@@ -677,7 +677,7 @@ void Run(CPU *cpu, RAM *ram) {
 
                     default:
                         printf("Unsupported 0xFF /%hhX\n", reg);
-                        State(cpu);
+                        CPUState(cpu);
                         exit(1);
 
                 }
@@ -686,7 +686,7 @@ void Run(CPU *cpu, RAM *ram) {
             // UNKNOWN
             default:
                 printf("Unknown Instruction 0x%hhX at 0x%08X\n", opcode, cpu->eip - 1);
-                State(cpu);
+                CPUState(cpu);
                 exit(1);
 
         }
@@ -759,7 +759,7 @@ uint32_t ALU(CPU *cpu, uint8_t op, uint32_t a, uint32_t b) {
         // Unsupported
         default:
             printf("Unsupported ALU operation %hhX\n", op);
-            State(cpu);
+            CPUState(cpu);
             exit(1);
     }
 

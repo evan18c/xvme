@@ -20,8 +20,8 @@ typedef struct {
     uint64_t counter;
 } CPU;
 
-void State(CPU *cpu);
+void CPUState(CPU *cpu);
 
-void Run(CPU *cpu, RAM *ram);
+void CPURun(CPU *cpu, RAM *ram);
 
 #endif
