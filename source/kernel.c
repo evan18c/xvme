@@ -19,10 +19,31 @@ void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
 
     switch (ordinal) {
 
+        // __stdcall HalRegisterShutdownNotification (2 args)
+        case 47: {
+            printf("HalRegisterShutdownNotification();\n");
+            cpu->esp += 4 * 2;
+            break;
+        }
+
         // __stdcall HalReturnToFirmware (1 arg)
         case 49: {
             printf("HalReturnToFirmware();\n");
             cpu->esp += 4 * 1;
+            break;
+        }
+
+        // __stdcall KeInitializeDpc (3 args)
+        case 107: {
+            printf("KeInitializeDpc();\n");
+            cpu->esp += 4 * 3;
+            break;
+        }
+
+        // __stdcall KeInitializeTimerEx (2 args)
+        case 113: {
+            printf("KeInitializeTimerEx();\n");
+            cpu->esp += 4 * 2;
             break;
         }
 

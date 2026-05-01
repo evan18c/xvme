@@ -666,6 +666,28 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
                 switch (reg) {
 
+                    // TEST
+                    case 0:
+                        if (mod == 3) {
+                            uint8_t a = *get_reg8_ptr(cpu, rm);
+                            uint8_t b = RAMReadByte(ram, cpu->eip++);
+                            uint8_t result = a & b;
+                            cpu->ZF = (result == 0);
+                            cpu->SF = (result >> 7) & 1;
+                            cpu->CF = 0;
+                            cpu->OF = 0;
+                        } else {
+                            uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                            uint8_t a = RAMReadByte(ram, addr);
+                            uint8_t b = RAMReadByte(ram, cpu->eip++);
+                            uint8_t result = a & b;
+                            cpu->ZF = (result == 0);
+                            cpu->SF = (result >> 7) & 1;
+                            cpu->CF = 0;
+                            cpu->OF = 0;
+                        }
+                        break;
+
                     // NOT
                     case 2:
                         if (mod == 3) {
@@ -746,6 +768,12 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                         dest = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         cpu->esp -= 4;
                         RAMWrite32(ram, cpu->esp, cpu->eip);
+                        cpu->eip = dest;
+                        break;
+                    
+                    // JMP
+                    case 4:
+                        dest = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         cpu->eip = dest;
                         break;
 
