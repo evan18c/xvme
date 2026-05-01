@@ -23,40 +23,41 @@ Xbox *XboxNew() {
 
 }
 
-// Runs XBE
-void XboxRun(Xbox *xbox) {
+// Loads XBE
+void XboxLoadXBE(Xbox *xbox, const char *xbe) {
 
     // read xbe
     int size;
-    char *xbe = ReadFile("Default.xbe", &size);
+    char *data = ReadFile(xbe, &size);
 
     // read header
-    XBEImageHeader *header = (XBEImageHeader *)xbe;
+    XBEImageHeader *header = (XBEImageHeader *)data;
     uint32_t BaseAddress = header->BaseAddress;
     printf("BaseAddress: 0x%08X\n", BaseAddress);
 
     // Load Header
     RAMAddRegion(xbox->ram, BaseAddress, header->SizeOfHeaders);
-    memcpy(RAMRawPointer(xbox->ram, BaseAddress), xbe, header->SizeOfHeaders);
+    memcpy(RAMRawPointer(xbox->ram, BaseAddress), data, header->SizeOfHeaders);
 
     // Load Sections
     printf("Number Of Sections: %d\n", header->NumberOfSections);
-    XBESectionHeader *headers = (XBESectionHeader *)(xbe + (header->SectionHeaderAddress - BaseAddress));
+    XBESectionHeader *headers = (XBESectionHeader *)(data + (header->SectionHeaderAddress - BaseAddress));
     for (int i = 0; i < header->NumberOfSections; i++) {
         uint32_t VirtualAddress = headers[i].VirtualAddress;
         uint32_t VirtualSize = headers[i].VirtualSize;
         uint32_t RawAddress = headers[i].RawAddress;
         uint32_t RawSize = headers[i].RawSize;
-        char *SectionName = xbe + (headers[i].SectionNameAddress - BaseAddress);
+        char *SectionName = data + (headers[i].SectionNameAddress - BaseAddress);
 
         printf("RAMAddRegion (%s) at 0x%08X Size 0x%08X\n", SectionName, VirtualAddress, VirtualSize);
         RAMAddRegion(xbox->ram, VirtualAddress, VirtualSize);
-        memcpy(RAMRawPointer(xbox->ram, VirtualAddress), xbe + RawAddress, RawSize);
+        memcpy(RAMRawPointer(xbox->ram, VirtualAddress), data + RawAddress, RawSize);
     }
 
     // Entry Point
     uint32_t EntryPoint = header->EntryPoint ^ 0xA8FC57AB;
     printf("EntryPoint: 0x%08X\n", EntryPoint);
+    xbox->cpu->eip = EntryPoint;
 
     // Kernel Imports
     uint32_t KernelImageThunkAddress = header->KernelImageThunkAddress ^ 0x5B6D40B6;
@@ -68,6 +69,11 @@ void XboxRun(Xbox *xbox) {
     // Kernel Imports
     RAMAddRegion(xbox->ram, 0x80000000, 512);
     *(uint32_t *)RAMRawPointer(xbox->ram, 0x800000A4) = 0x81000000; // xboxkrnl.exe::LaunchDataPage
+
+}
+
+// Runs XBE
+void XboxRun(Xbox *xbox) {
 
     // Temp FS region, FS = 0
     RAMAddRegion(xbox->ram, 0x00000000, 0x1000);
@@ -82,6 +88,5 @@ void XboxRun(Xbox *xbox) {
 
     // Running
     printf("\n");
-    xbox->cpu->eip = EntryPoint;
     CPURun(xbox, xbox->cpu, xbox->ram);
 }

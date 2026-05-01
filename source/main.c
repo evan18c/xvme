@@ -9,6 +9,7 @@
 int main() {
 
     Xbox *xbox = XboxNew();
+    XboxLoadXBE(xbox, "Default.xbe");
     XboxRun(xbox);
 
     return 0;

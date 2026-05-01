@@ -14,6 +14,7 @@ typedef struct Xbox {
 } Xbox;
 
 Xbox *XboxNew();
+void XboxLoadXBE(Xbox *xbox, const char *xbe);
 void XboxRun(Xbox *xbox);
 
 #endif
