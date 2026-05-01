@@ -64,14 +64,14 @@ void Run(CPU *cpu, RAM *ram) {
         while (1) {
             uint8_t prefix = ReadByte(ram, cpu->eip);
 
-            if (prefix == 0xF3) {
-                prefix_rep = 1;
+            if (prefix == 0x64) {
+                prefix_fs = 1;
                 cpu->eip++;
                 continue;
             }
 
-            if (prefix == 0x64) {
-                prefix_fs = 1;
+            if (prefix == 0xF3) {
+                prefix_rep = 1;
                 cpu->eip++;
                 continue;
             }
@@ -121,6 +121,15 @@ void Run(CPU *cpu, RAM *ram) {
 
                         write_rm8(cpu, ram, reg_ptrs, mod, rm, !cpu->ZF);
                         break;
+
+                    // MOVZX r32, r/m16
+                    case 0xB7:
+                        modrm = ReadByte(ram, cpu->eip++);
+                        mod = (modrm >> 6) & 3;
+                        reg = (modrm >> 3) & 7;
+                        rm = modrm & 7;
+
+                        
 
                     // Unsupported
                     default:
@@ -881,4 +890,15 @@ void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t r
     }
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
     WriteByte(ram, addr, val);
+}
+
+// Writes to R/M address (2 byte)
+void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint16_t val) {
+    if (mod == 3) {
+        *(uint16_t *)reg_ptrs[rm] = val;
+        return;
+    }
+    uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+    WriteByte(ram, addr, val & 255);
+    WriteByte(ram, addr + 1, (val >> 8) & 255);
 }

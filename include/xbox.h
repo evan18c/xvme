@@ -4,6 +4,15 @@
 #ifndef XBOX_H
 #define XBOX_H
 
-void xbox();
+#include "CPU.h"
+#include "RAM.h"
+
+typedef struct {
+    CPU *cpu;
+    RAM *ram;
+} Xbox;
+
+Xbox *XboxNew();
+void XboxRun(Xbox *xbox);
 
 #endif
