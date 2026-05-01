@@ -3,7 +3,8 @@
 // Date: 4/22/2026
 
 #include "xbox.h"
-
+#include "CPU.h"
+#include "RAM.h"
 #include "utils.h"
 #include "xbe.h"
 

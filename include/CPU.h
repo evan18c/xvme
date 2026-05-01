@@ -8,9 +8,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include "RAM.h"
 
+// Forward
 typedef struct Xbox Xbox;
+typedef struct RAM RAM;
 
 typedef struct CPU {
     uint32_t eax, ebx, ecx, edx;

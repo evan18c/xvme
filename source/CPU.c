@@ -3,6 +3,8 @@
 // Date: 4/22/2026
 
 #include "CPU.h"
+#include "xbox.h"
+#include "RAM.h"
 #include "kernel.h"
 
 // Private function prototypes

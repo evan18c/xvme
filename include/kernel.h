@@ -4,8 +4,9 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
-#include "CPU.h"
-#include "RAM.h"
+// Forward
+typedef struct CPU CPU;
+typedef struct RAM RAM;
 
 void HandleKernelCall(CPU *cpu, RAM *ram);
 

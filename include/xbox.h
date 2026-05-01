@@ -4,8 +4,9 @@
 #ifndef XBOX_H
 #define XBOX_H
 
-#include "CPU.h"
-#include "RAM.h"
+// Forward
+typedef struct CPU CPU;
+typedef struct RAM RAM;
 
 typedef struct Xbox {
     CPU *cpu;
