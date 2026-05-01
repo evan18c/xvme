@@ -73,6 +73,10 @@ void XboxLoadXBE(Xbox *xbox, const char *xbe) {
     RAMAddRegion(xbox->ram, 0x80000000, 512);
     *(uint32_t *)RAMRawPointer(xbox->ram, 0x800000A4) = 0x81000000; // xboxkrnl.exe::LaunchDataPage
 
+    // KPCR
+    RAMAddRegion(xbox->ram, 0x80010000, 0x10000);
+    RAMWrite32(xbox->ram, 0x8001003C, 0x80010100); // KeGetCurrentThread() dummy pointer
+
 }
 
 // Runs XBE

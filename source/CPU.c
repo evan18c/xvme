@@ -145,6 +145,18 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             }
             break;
 
+            // AND AL, imm8
+            case 0x24: {
+                uint8_t result = *get_reg8_ptr(cpu, 0) & RAMReadByte(ram, cpu->eip++);
+                *get_reg8_ptr(cpu, 0) = result;
+
+                cpu->ZF = (result == 0);
+                cpu->SF = (result >> 7) & 1;
+                cpu->CF = 0;
+                cpu->OF = 0;
+                break;
+            }
+
             // SUB r32, r/m32
             case 0x2B:
                 modrm = RAMReadByte(ram, cpu->eip++);
@@ -271,12 +283,13 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 break;
 
             // PUSH imm8
-            case 0x6A:
+            case 0x6A: {
                 imm8 = RAMReadByte(ram, cpu->eip++);
                 cpu->esp -= 4;
                 int32_t val = (int8_t)imm8;
                 RAMWrite32(ram, cpu->esp, val);
                 break;
+            }
 
             // JB rel8
             // JC rel8
