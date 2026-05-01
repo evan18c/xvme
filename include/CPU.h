@@ -10,7 +10,9 @@
 #include <string.h>
 #include "RAM.h"
 
-typedef struct {
+typedef struct Xbox Xbox;
+
+typedef struct CPU {
     uint32_t eax, ebx, ecx, edx;
     uint32_t esi, edi;
     uint32_t ebp, esp;
@@ -22,6 +24,6 @@ typedef struct {
 
 void CPUState(CPU *cpu);
 
-void CPURun(CPU *cpu, RAM *ram);
+void CPURun(Xbox *xbox, CPU *cpu, RAM *ram);
 
 #endif

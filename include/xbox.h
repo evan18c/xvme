@@ -7,7 +7,7 @@
 #include "CPU.h"
 #include "RAM.h"
 
-typedef struct {
+typedef struct Xbox {
     CPU *cpu;
     RAM *ram;
 } Xbox;

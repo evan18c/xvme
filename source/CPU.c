@@ -23,7 +23,7 @@ void CPUState(CPU *cpu) {
     printf("COUNTER: %llu\n", cpu->counter);
 }
 
-void CPURun(CPU *cpu, RAM *ram) {
+void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
     // Init
     uint32_t *reg_ptrs[8] = {&cpu->eax, &cpu->ecx, &cpu->edx, &cpu->ebx, &cpu->esp, &cpu->ebp, &cpu->esi, &cpu->edi};

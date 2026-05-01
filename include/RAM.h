@@ -8,13 +8,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-typedef struct {
+typedef struct Region {
     uint32_t base;
     uint32_t size;
     uint8_t *data;
 } Region;
 
-typedef struct {
+typedef struct RAM {
     Region regions[64];
     uint8_t region_count;
 } RAM;

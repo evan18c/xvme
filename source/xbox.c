@@ -82,5 +82,5 @@ void XboxRun(Xbox *xbox) {
     // Running
     printf("\n");
     xbox->cpu->eip = EntryPoint;
-    CPURun(xbox->cpu, xbox->ram);
+    CPURun(xbox, xbox->cpu, xbox->ram);
 }
