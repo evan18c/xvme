@@ -11,7 +11,7 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
     uint32_t ordinal = cpu->eip - 0x80000000;
 
     // Return Address
-    uint32_t ret = Read32(ram, cpu->esp);
+    uint32_t ret = RAMRead32(ram, cpu->esp);
     cpu->esp += 4;
 
     switch (ordinal) {
@@ -40,7 +40,7 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
         // __stdcall PsCreateSystemThreadEx (10 args)
         case 255: {
             printf("PsCreateSystemThreadEx();\n");
-            uint32_t StartRoutine = Read32(ram, cpu->esp + 4 * 5);
+            uint32_t StartRoutine = RAMRead32(ram, cpu->esp + 4 * 5);
             printf("StartRoutine: %08X\n", StartRoutine);
             cpu->esp += 4 * 10;
             cpu->eax = 0;
@@ -57,7 +57,7 @@ void HandleKernelCall(CPU *cpu, RAM *ram) {
         // Unknown Kernel Call
         default:
             printf("Unknown kernel call %d\n", ordinal);
-            State(cpu);
+            CPUState(cpu);
             exit(1);
 
     }

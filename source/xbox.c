@@ -35,8 +35,8 @@ void XboxRun(Xbox *xbox) {
     printf("BaseAddress: 0x%08X\n", BaseAddress);
 
     // Load Header
-    AddRegion(xbox->ram, BaseAddress, header->SizeOfHeaders);
-    memcpy(RawPointer(xbox->ram, BaseAddress), xbe, header->SizeOfHeaders);
+    RAMAddRegion(xbox->ram, BaseAddress, header->SizeOfHeaders);
+    memcpy(RAMRawPointer(xbox->ram, BaseAddress), xbe, header->SizeOfHeaders);
 
     // Load Sections
     printf("Number Of Sections: %d\n", header->NumberOfSections);
@@ -48,9 +48,9 @@ void XboxRun(Xbox *xbox) {
         uint32_t RawSize = headers[i].RawSize;
         char *SectionName = xbe + (headers[i].SectionNameAddress - BaseAddress);
 
-        printf("AddRegion (%s) at 0x%08X Size 0x%08X\n", SectionName, VirtualAddress, VirtualSize);
-        AddRegion(xbox->ram, VirtualAddress, VirtualSize);
-        memcpy(RawPointer(xbox->ram, VirtualAddress), xbe + RawAddress, RawSize);
+        printf("RAMAddRegion (%s) at 0x%08X Size 0x%08X\n", SectionName, VirtualAddress, VirtualSize);
+        RAMAddRegion(xbox->ram, VirtualAddress, VirtualSize);
+        memcpy(RAMRawPointer(xbox->ram, VirtualAddress), xbe + RawAddress, RawSize);
     }
 
     // Entry Point
@@ -62,25 +62,25 @@ void XboxRun(Xbox *xbox) {
     printf("KernelImageThunkAddress: 0x%08X\n", KernelImageThunkAddress);
 
     // Kernel LaunchDataPage
-    AddRegion(xbox->ram, 0x81000000, 0x1000);
+    RAMAddRegion(xbox->ram, 0x81000000, 0x1000);
 
     // Kernel Imports
-    AddRegion(xbox->ram, 0x80000000, 512);
-    *(uint32_t *)RawPointer(xbox->ram, 0x800000A4) = 0x81000000; // xboxkrnl.exe::LaunchDataPage
+    RAMAddRegion(xbox->ram, 0x80000000, 512);
+    *(uint32_t *)RAMRawPointer(xbox->ram, 0x800000A4) = 0x81000000; // xboxkrnl.exe::LaunchDataPage
 
     // Temp FS region, FS = 0
-    AddRegion(xbox->ram, 0x00000000, 0x1000);
+    RAMAddRegion(xbox->ram, 0x00000000, 0x1000);
 
     // Adding STACK
-    AddRegion(xbox->ram, 0x03F00000, 0x100000); // stack
+    RAMAddRegion(xbox->ram, 0x03F00000, 0x100000); // stack
     xbox->cpu->esp = 0x04000000;
 
     // Return Address
     xbox->cpu->esp -= 4;
-    *(uint32_t *)RawPointer(xbox->ram, xbox->cpu->esp) = 0x00000000;
+    *(uint32_t *)RAMRawPointer(xbox->ram, xbox->cpu->esp) = 0x00000000;
 
     // Running
     printf("\n");
     xbox->cpu->eip = EntryPoint;
-    Run(xbox->cpu, xbox->ram);
+    CPURun(xbox->cpu, xbox->ram);
 }

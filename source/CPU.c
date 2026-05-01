@@ -62,7 +62,7 @@ void CPURun(CPU *cpu, RAM *ram) {
         prefix_rep = 0;
         prefix_fs = 0;
         while (1) {
-            uint8_t prefix = ReadByte(ram, cpu->eip);
+            uint8_t prefix = RAMReadByte(ram, cpu->eip);
 
             if (prefix == 0x64) {
                 prefix_fs = 1;
@@ -80,13 +80,13 @@ void CPURun(CPU *cpu, RAM *ram) {
         }
 
         // Standard Opcode
-        uint8_t opcode = ReadByte(ram, cpu->eip++);
+        uint8_t opcode = RAMReadByte(ram, cpu->eip++);
 
         switch (opcode) {
 
             // ADD r32, r/m32
             case 0x03:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -100,7 +100,7 @@ void CPURun(CPU *cpu, RAM *ram) {
             // ADD EAX, imm32
             case 0x05:
                 a = cpu->eax;
-                b = Read32(ram, cpu->eip);
+                b = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->eax = ALU(cpu, 0, a, b);
                 break;
@@ -108,13 +108,13 @@ void CPURun(CPU *cpu, RAM *ram) {
             // 2 byte opcodes
             case 0x0F: {
 
-                uint8_t opcode2 = ReadByte(ram, cpu->eip++);
+                uint8_t opcode2 = RAMReadByte(ram, cpu->eip++);
 
                 switch (opcode2) {
 
                     // SETNZ
                     case 0x95:
-                        modrm = ReadByte(ram, cpu->eip++);
+                        modrm = RAMReadByte(ram, cpu->eip++);
                         mod = (modrm >> 6) & 3;
                         reg = (modrm >> 3) & 7;
                         rm = modrm & 7;
@@ -124,7 +124,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
                     // MOVZX r32, r/m16
                     case 0xB7:
-                        modrm = ReadByte(ram, cpu->eip++);
+                        modrm = RAMReadByte(ram, cpu->eip++);
                         mod = (modrm >> 6) & 3;
                         reg = (modrm >> 3) & 7;
                         rm = modrm & 7;
@@ -143,7 +143,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // SUB r32, r/m32
             case 0x2B:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -157,7 +157,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // XOR r32, r/m32
             case 0x33:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -170,7 +170,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // CMP r/m32, r32
             case 0x39:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -184,7 +184,7 @@ void CPURun(CPU *cpu, RAM *ram) {
             
             // CMP r32, r/m32
             case 0x3B:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -242,7 +242,7 @@ void CPURun(CPU *cpu, RAM *ram) {
             case 0x56:
             case 0x57:
                 cpu->esp -= 4;
-                Write32(ram, cpu->esp, *reg_ptrs[opcode - 0x50]);
+                RAMWrite32(ram, cpu->esp, *reg_ptrs[opcode - 0x50]);
                 break;
 
             // POP r32
@@ -254,31 +254,31 @@ void CPURun(CPU *cpu, RAM *ram) {
             case 0x5D:
             case 0x5E:
             case 0x5F:
-                *reg_ptrs[opcode - 0x58] = Read32(ram, cpu->esp);
+                *reg_ptrs[opcode - 0x58] = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
                 break;
 
             // PUSH imm32
             case 0x68:
-                imm32 = Read32(ram, cpu->eip);
+                imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->esp -= 4;
-                Write32(ram, cpu->esp, imm32);
+                RAMWrite32(ram, cpu->esp, imm32);
                 break;
 
             // PUSH imm8
             case 0x6A:
-                imm8 = ReadByte(ram, cpu->eip++);
+                imm8 = RAMReadByte(ram, cpu->eip++);
                 cpu->esp -= 4;
                 int32_t val = (int8_t)imm8;
-                Write32(ram, cpu->esp, val);
+                RAMWrite32(ram, cpu->esp, val);
                 break;
 
             // JB rel8
             // JC rel8
             // JNAE rel8
             case 0x72:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->CF) cpu->eip += rel8;
                 break;
 
@@ -286,51 +286,51 @@ void CPURun(CPU *cpu, RAM *ram) {
             // JNB rel8
             // JNC rel8
             case 0x73:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (!cpu->CF) cpu->eip += rel8;
                 break;
 
             // JE rel8
             // JZ rel8
             case 0x74:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->ZF) cpu->eip += rel8;
                 break;
 
             // JNE rel8
             // JNZ rel8
             case 0x75:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (!cpu->ZF) cpu->eip += rel8;
                 break;
             
             // JL rel8
             case 0x7C:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->SF != cpu->OF) cpu->eip += rel8;
                 break;
 
             // JGE rel8
             case 0x7D:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->SF == cpu->OF) cpu->eip += rel8;
                 break;
 
             // JLE rel8
             case 0x7E:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->ZF || cpu->SF != cpu->OF) cpu->eip += rel8;
                 break;
             
             // JG rel8
             case 0x7F:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (!cpu->ZF && cpu->SF == cpu->OF) cpu->eip += rel8;
                 break;
 
             // ADD, OR, ADC, SBB, AND, SUB, XOR, CMP r/m32, imm32
             case 0x81:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -338,23 +338,23 @@ void CPURun(CPU *cpu, RAM *ram) {
                 addr = 0;
                 if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-                a = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
+                a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
 
-                b = Read32(ram, cpu->eip);
+                b = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
 
                 temp = ALU(cpu, reg, a, b);
 
                 if (reg != 7) {
                     if (mod == 3) *reg_ptrs[rm] = temp;
-                    else Write32(ram, addr, temp);
+                    else RAMWrite32(ram, addr, temp);
                 }
 
                 break;
 
             // ADD, SUB, CMP, AND, OR, XOR r/m32, imm8
             case 0x83: {
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -364,15 +364,15 @@ void CPURun(CPU *cpu, RAM *ram) {
                     addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
                 }
 
-                a = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
-                b = (int32_t)(int8_t)ReadByte(ram, cpu->eip++);
+                a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
+                b = (int32_t)(int8_t)RAMReadByte(ram, cpu->eip++);
 
                 temp = ALU(cpu, reg, a, b);
 
                 // not CMP
                 if (reg != 7) {
                     if (mod == 3) *reg_ptrs[rm] = temp;
-                    else Write32(ram, addr, temp);
+                    else RAMWrite32(ram, addr, temp);
                 }
 
                 break;
@@ -380,7 +380,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // TEST r/m32, r32
             case 0x85:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -394,7 +394,7 @@ void CPURun(CPU *cpu, RAM *ram) {
             
             // MOV r/m32, r32
             case 0x89:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -405,7 +405,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // MOV r32, r/m32
             case 0x8B:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -416,7 +416,7 @@ void CPURun(CPU *cpu, RAM *ram) {
             
             // LEA r32, m
             case 0x8D:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -436,29 +436,29 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // MOV EAX, moffs32
             case 0xA1:
-                imm32 = Read32(ram, cpu->eip);
+                imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
-                cpu->eax = Read32(ram, imm32);
+                cpu->eax = RAMRead32(ram, imm32);
                 break;
             
             // MOV moffs32, EAX
             case 0xA3:
-                imm32 = Read32(ram, cpu->eip);
+                imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
-                Write32(ram, imm32, cpu->eax);
+                RAMWrite32(ram, imm32, cpu->eax);
                 break;
 
             // MOVSD
             case 0xA5:
                 if (prefix_rep) {
                     while (cpu->ecx != 0) {
-                        Write32(ram, cpu->edi, Read32(ram, cpu->esi));
+                        RAMWrite32(ram, cpu->edi, RAMRead32(ram, cpu->esi));
                         cpu->edi += 4;
                         cpu->esi += 4;
                         cpu->ecx--;
                     }
                 } else {
-                    Write32(ram, cpu->edi, Read32(ram, cpu->esi));
+                    RAMWrite32(ram, cpu->edi, RAMRead32(ram, cpu->esi));
                     cpu->edi += 4;
                     cpu->esi += 4;
                 }
@@ -468,12 +468,12 @@ void CPURun(CPU *cpu, RAM *ram) {
             case 0xAB:
                 if (prefix_rep) {
                     while (cpu->ecx != 0) {
-                        Write32(ram, cpu->edi, cpu->eax);
+                        RAMWrite32(ram, cpu->edi, cpu->eax);
                         cpu->edi += 4;
                         cpu->ecx--;
                     }
                 } else {
-                    Write32(ram, cpu->edi, cpu->eax);
+                    RAMWrite32(ram, cpu->edi, cpu->eax);
                     cpu->edi += 4;
                 }
                 break;
@@ -487,14 +487,14 @@ void CPURun(CPU *cpu, RAM *ram) {
             case 0xBD:
             case 0xBE:
             case 0xBF:
-                imm32 = Read32(ram, cpu->eip);
+                imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 *reg_ptrs[opcode - 0xB8] = imm32;
                 break;
 
             // SHR r/m32, imm8
             case 0xC1: {
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -502,8 +502,8 @@ void CPURun(CPU *cpu, RAM *ram) {
                 addr = 0;
                 if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-                uint32_t val = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
-                uint8_t imm8 = ReadByte(ram, cpu->eip++) & 0x1F;
+                uint32_t val = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
+                uint8_t imm8 = RAMReadByte(ram, cpu->eip++) & 0x1F;
                 uint32_t result = val;
 
                 switch (reg) {
@@ -526,7 +526,7 @@ void CPURun(CPU *cpu, RAM *ram) {
                 }
 
                 if (mod == 3) *reg_ptrs[rm] = result;
-                else Write32(ram, addr, result);
+                else RAMWrite32(ram, addr, result);
 
                 break;
 
@@ -534,10 +534,10 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // RET imm16
             case 0xC2:
-                imm16 = ReadByte(ram, cpu->eip) | (ReadByte(ram, cpu->eip + 1) << 8);
+                imm16 = RAMReadByte(ram, cpu->eip) | (RAMReadByte(ram, cpu->eip + 1) << 8);
                 cpu->eip += 2;
 
-                ret = Read32(ram, cpu->esp);
+                ret = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
 
                 cpu->esp += imm16;
@@ -546,14 +546,14 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // RET
             case 0xC3:
-                ret = Read32(ram, cpu->esp);
+                ret = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
                 cpu->eip = ret;
                 break;
 
             // MOV r/m32, imm32
             case 0xC7:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -561,17 +561,17 @@ void CPURun(CPU *cpu, RAM *ram) {
                 addr = 0;
                 if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-                imm32 = Read32(ram, cpu->eip);
+                imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
 
                 if (mod == 3) *reg_ptrs[rm] = imm32;
-                else Write32(ram, addr, imm32);
+                else RAMWrite32(ram, addr, imm32);
                 break;
             
             // LEAVE
             case 0xC9:
                 cpu->esp = cpu->ebp;
-                cpu->ebp = Read32(ram, cpu->esp);
+                cpu->ebp = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
                 break;
 
@@ -583,36 +583,36 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // CALL rel32
             case 0xE8:
-                rel32 = (int32_t)Read32(ram, cpu->eip);
+                rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->esp -= 4;
-                Write32(ram, cpu->esp, cpu->eip);
+                RAMWrite32(ram, cpu->esp, cpu->eip);
                 cpu->eip += rel32;
                 break;
 
             // JMP rel32
             case 0xE9:
-                rel32 = (int32_t)Read32(ram, cpu->eip);
+                rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->eip += rel32;
                 break;
 
             // JMP rel8
             case 0xEB:
-                rel8 = (int8_t)ReadByte(ram, cpu->eip++);
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 cpu->eip += rel8;
                 break;
 
             // TEST, TEST, NOT, NEG, MUL, IMUL, DIV, IDIV
             case 0xF7:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
                 addr = 0;
                 if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
-                a = (mod == 3) ? *reg_ptrs[rm] : Read32(ram, addr);
+                a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
 
                 switch (reg) {
 
@@ -620,7 +620,7 @@ void CPURun(CPU *cpu, RAM *ram) {
                     case 3:
                         temp = 0 - a;
                         if (mod == 3) *reg_ptrs[rm] = temp;
-                        else Write32(ram, addr, temp);
+                        else RAMWrite32(ram, addr, temp);
                         cpu->ZF = (temp == 0);
                         cpu->SF = (temp >> 31) & 1;
                         cpu->CF = (a != 0);
@@ -652,7 +652,7 @@ void CPURun(CPU *cpu, RAM *ram) {
 
             // INC, DEC, CALL, CALLF, JMP, JMPF, PUSH r/m32
             case 0xFF:
-                modrm = ReadByte(ram, cpu->eip++);
+                modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
@@ -663,7 +663,7 @@ void CPURun(CPU *cpu, RAM *ram) {
                     case 2:
                         dest = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         cpu->esp -= 4;
-                        Write32(ram, cpu->esp, cpu->eip);
+                        RAMWrite32(ram, cpu->esp, cpu->eip);
                         cpu->eip = dest;
                         break;
 
@@ -671,7 +671,7 @@ void CPURun(CPU *cpu, RAM *ram) {
                     case 6: {
                         uint32_t val = read_rm32(cpu, ram, reg_ptrs, mod, rm);
                         cpu->esp -= 4;
-                        Write32(ram, cpu->esp, val);
+                        RAMWrite32(ram, cpu->esp, val);
                         break;
                     }
 
@@ -773,7 +773,7 @@ uint32_t read_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
     }
 
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
-    return Read32(ram, addr);
+    return RAMRead32(ram, addr);
 }
 
 // Writes to R/M address
@@ -785,7 +785,7 @@ void write_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t 
 
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-    Write32(ram, addr, val);
+    RAMWrite32(ram, addr, val);
 }
 
 // Calculates address for R/M when mod != 3
@@ -795,7 +795,7 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
     if (rm == 4) {
 
         // sib
-        uint8_t sib = ReadByte(ram, cpu->eip++);
+        uint8_t sib = RAMReadByte(ram, cpu->eip++);
 
         // decode
         uint8_t scale = (sib >> 6) & 3;
@@ -816,7 +816,7 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
         // base
         uint32_t base_val;
         if (mod == 0 && base == 5) {
-            uint32_t udisp = Read32(ram, cpu->eip);
+            uint32_t udisp = RAMRead32(ram, cpu->eip);
             cpu->eip += 4;
             base_val = (int32_t)udisp;
         } else {
@@ -826,9 +826,9 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
         // disp
         int32_t disp = 0;
         if (mod == 1) {
-            disp = (int8_t)ReadByte(ram, cpu->eip++);
+            disp = (int8_t)RAMReadByte(ram, cpu->eip++);
         } else if (mod == 2) {
-            uint32_t udisp = Read32(ram, cpu->eip);
+            uint32_t udisp = RAMRead32(ram, cpu->eip);
             cpu->eip += 4;
             disp = (int32_t)udisp;
         }
@@ -841,7 +841,7 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 
         // disp32
         if (rm == 5) {
-            int32_t disp32 = (int32_t)Read32(ram, cpu->eip);
+            int32_t disp32 = (int32_t)RAMRead32(ram, cpu->eip);
             cpu->eip += 4;
             return disp32;
         }
@@ -852,13 +852,13 @@ uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 
     // disp8
     if (mod == 1) {
-        int8_t disp8 = (int8_t)ReadByte(ram, cpu->eip++);
+        int8_t disp8 = (int8_t)RAMReadByte(ram, cpu->eip++);
         return *reg_ptrs[rm] + disp8;
     }
 
     // disp32
     if (mod == 2) {
-        int32_t disp32 = (int32_t)Read32(ram, cpu->eip);
+        int32_t disp32 = (int32_t)RAMRead32(ram, cpu->eip);
         cpu->eip += 4;
         return *reg_ptrs[rm] + disp32; 
     }
@@ -889,7 +889,7 @@ void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t r
         return;
     }
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
-    WriteByte(ram, addr, val);
+    RAMWriteByte(ram, addr, val);
 }
 
 // Writes to R/M address (2 byte)
@@ -899,6 +899,6 @@ void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t 
         return;
     }
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
-    WriteByte(ram, addr, val & 255);
-    WriteByte(ram, addr + 1, (val >> 8) & 255);
+    RAMWriteByte(ram, addr, val & 255);
+    RAMWriteByte(ram, addr + 1, (val >> 8) & 255);
 }

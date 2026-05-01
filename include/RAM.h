@@ -19,14 +19,14 @@ typedef struct {
     uint8_t region_count;
 } RAM;
 
-void AddRegion(RAM *ram, uint32_t base, uint32_t size);
+void RAMAddRegion(RAM *ram, uint32_t base, uint32_t size);
 
-uint8_t ReadByte(RAM *ram, uint32_t addr);
-uint32_t Read32(RAM *ram, uint32_t addr);
-void WriteByte(RAM *ram, uint32_t addr, uint8_t byte);
-void Write32(RAM *ram, uint32_t addr, uint32_t data);
+uint8_t RAMReadByte(RAM *ram, uint32_t addr);
+uint32_t RAMRead32(RAM *ram, uint32_t addr);
+void RAMWriteByte(RAM *ram, uint32_t addr, uint8_t byte);
+void RAMWrite32(RAM *ram, uint32_t addr, uint32_t data);
 
 // Virtual Address -> Raw Address
-void *RawPointer(RAM *ram, uint32_t addr);
+void *RAMRawPointer(RAM *ram, uint32_t addr);
 
 #endif
