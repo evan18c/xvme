@@ -14,6 +14,8 @@ void write_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t 
 uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 uint8_t *get_reg8_ptr(CPU *cpu, uint8_t rm);
 void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val);
+void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint16_t val);
+uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 
 void CPUState(CPU *cpu) {
     printf("EAX: 0x%08X EBX: 0x%08X ECX: 0x%08X EDX: 0x%08X\n", cpu->eax, cpu->ebx, cpu->ecx, cpu->edx);
@@ -48,9 +50,8 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
         // Process Exit
         if (!cpu->eip) {
-            printf("\nProcess finished.\n");
+            printf("Thread finished.\n");
             CPUState(cpu);
-            exit(0);
             break;
         }
 
@@ -131,7 +132,8 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                         reg = (modrm >> 3) & 7;
                         rm = modrm & 7;
 
-                        
+                        *reg_ptrs[reg] = (uint32_t)read_rm16(cpu, ram, reg_ptrs, mod, rm);
+                        break;
 
                     // Unsupported
                     default:
@@ -582,6 +584,43 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 printf("INT3\n");
                 CPUState(cpu);
                 exit(0);
+            
+            // SHR r/m32, 1
+            case 0xD1: {
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                addr = 0;
+                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+
+                uint32_t val = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
+                uint32_t result = val;
+
+                switch (reg) {
+
+                    // SHR
+                    case 5:
+                        result = val >> 1;
+                        cpu->CF = val & 1;
+                        cpu->ZF = (result == 0);
+                        cpu->SF = (result >> 31) & 1;
+                        break;
+
+                    default:
+                        printf("Unspported 0xC1 /%hhx\n", reg);
+                        CPUState(cpu);
+                        exit(1);
+
+                }
+
+                if (mod == 3) *reg_ptrs[rm] = result;
+                else RAMWrite32(ram, addr, result);
+
+                break;
+
+            }
 
             // CALL rel32
             case 0xE8:
@@ -604,6 +643,34 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 cpu->eip += rel8;
                 break;
+            
+            // TEST, NOT, NEG, MUL, IMUL, DIV, IDIV r/m8
+            case 0xF6:
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                switch (reg) {
+
+                    // NOT
+                    case 2:
+                        if (mod == 3) {
+                            *get_reg8_ptr(cpu, rm) ^= 0xFF;
+                        } else {
+                            addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                            RAMWriteByte(ram, addr, RAMReadByte(ram, addr) ^ 0xFF);
+                        }
+                        break;
+                    
+                    default:
+                        printf("Unsupported 0xF6 /%hhX\n", reg);
+                        CPUState(cpu);
+                        exit(1);
+                }
+
+                break;
+
 
             // TEST, TEST, NOT, NEG, MUL, IMUL, DIV, IDIV
             case 0xF7:
@@ -903,4 +970,14 @@ void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t 
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
     RAMWriteByte(ram, addr, val & 255);
     RAMWriteByte(ram, addr + 1, (val >> 8) & 255);
+}
+
+// Reads from R/M address
+uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm) {
+    if (mod == 3) {
+        return *(uint16_t *)reg_ptrs[rm];
+    }
+
+    uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+    return RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
 }

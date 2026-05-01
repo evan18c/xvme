@@ -44,9 +44,9 @@ void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
         case 255: {
             printf("PsCreateSystemThreadEx();\n");
             uint32_t StartRoutine = RAMRead32(ram, cpu->esp + 4 * 5);
-            printf("StartRoutine: %08X\n", StartRoutine);
             cpu->esp += 4 * 10;
             cpu->eax = 0;
+            XboxCreateThread(xbox, StartRoutine);
             break;
         }
 

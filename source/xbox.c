@@ -111,6 +111,7 @@ void XboxCreateThread(Xbox *xbox, uint32_t entry) {
 
     // Run
     printf("XboxCreateThread(); at %08X\n", entry);
+    xbox->threads[xbox->thread_count]->eip = entry;
     xbox->thread_count++;
     CPURun(xbox, xbox->threads[xbox->thread_count-1], xbox->ram);
 
