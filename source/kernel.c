@@ -70,6 +70,14 @@ void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
             break;
         }
 
+        // __stdcall NtAllocateVirtualMemory (5 args)
+        case 184: {
+            printf("NtAllocateVirtualMemory();\n");
+            cpu->esp += 4 * 5;
+            cpu->eax = 0;
+            break;
+        }
+
         // __stdcall NtClose (1 arg)
         case 187: {
             printf("NtClose();\n");
