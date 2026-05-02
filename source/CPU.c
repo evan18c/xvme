@@ -115,6 +115,22 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
                 switch (opcode2) {
 
+                    // JZ rel32
+                    // JE rel32
+                    case 0x84:
+                        rel32 = (int32_t)RAMRead32(ram, cpu->eip);
+                        cpu->eip += 4;
+                        if (cpu->ZF) cpu->eip += rel32;
+                        break;
+
+                    // JNZ rel32
+                    // JNE rel32
+                    case 0x85:
+                        rel32 = (int32_t)RAMRead32(ram, cpu->eip);
+                        cpu->eip += 4;
+                        if (!cpu->ZF) cpu->eip += rel32;
+                        break;
+
                     // JL rel32
                     // JNGE rel32
                     case 0x8C:
