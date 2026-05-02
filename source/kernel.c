@@ -19,6 +19,14 @@ void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
 
     switch (ordinal) {
 
+        // __stdcall ExQueryNonVolatileSetting (5 args)
+        case 24: {
+            printf("ExQueryNonVolatileSetting();\n");
+            cpu->esp += 4 * 5;
+            cpu->eax = 0;
+            break;
+        }
+
         // __stdcall HalRegisterShutdownNotification (2 args)
         case 47: {
             printf("HalRegisterShutdownNotification();\n");
@@ -44,6 +52,14 @@ void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
         case 113: {
             printf("KeInitializeTimerEx();\n");
             cpu->esp += 4 * 2;
+            break;
+        }
+
+        // __stdcall KeSetTimer (4 args)
+        case 149: {
+            printf("KeSetTimer();\n");
+            cpu->esp += 4 * 4;
+            cpu->eax = 0;
             break;
         }
 

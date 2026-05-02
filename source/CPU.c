@@ -84,6 +84,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
         // Standard Opcode
         uint8_t opcode = RAMReadByte(ram, cpu->eip++);
+        printf("%08X: %hhX\n", cpu->eip - 1, opcode);
 
         switch (opcode) {
 
