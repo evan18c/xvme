@@ -84,7 +84,6 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
         // Standard Opcode
         uint8_t opcode = RAMReadByte(ram, cpu->eip++);
-        printf("%08X: %hhX\n", cpu->eip - 1, opcode);
 
         switch (opcode) {
 
@@ -116,6 +115,14 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
                 switch (opcode2) {
 
+                    // JL rel32
+                    // JNGE rel32
+                    case 0x8C:
+                        rel32 = (int32_t)RAMRead32(ram, cpu->eip);
+                        cpu->eip += 4;
+                        if (cpu->SF != cpu->OF) cpu->eip += rel32;
+                        break;
+
                     // SETNZ
                     case 0x95:
                         modrm = RAMReadByte(ram, cpu->eip++);
@@ -145,6 +152,20 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             }
             break;
+
+            // AND r32, r/m32
+            case 0x23:
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                a = *reg_ptrs[reg];
+                b = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+
+                *reg_ptrs[reg] = ALU(cpu, 4, a, b);
+
+                break;
 
             // AND AL, imm8
             case 0x24: {
@@ -322,6 +343,13 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 if (!cpu->ZF) cpu->eip += rel8;
                 break;
             
+            // JBE rel8
+            // JNA rel8
+            case 0x76:
+                rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
+                if (cpu->CF || cpu->ZF) cpu->eip += rel8;
+                break;
+
             // JL rel8
             case 0x7C:
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
@@ -720,6 +748,13 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
 
                 switch (reg) {
+
+                    // TEST
+                    case 0:
+                        b = RAMRead32(ram, cpu->eip);
+                        cpu->eip += 4;
+                        ALU(cpu, 4, a, b);
+                        break;
 
                     // NEG
                     case 3:
