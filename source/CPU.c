@@ -207,6 +207,14 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 break;
             }
 
+            // AND eax, imm32
+            case 0x25: {
+                imm32 = RAMRead32(ram, cpu->eip);
+                cpu->eip += 4;
+                cpu->eax = ALU(cpu, 4, cpu->eax, imm32);
+                break;
+            }
+
             // SUB r32, r/m32
             case 0x2B:
                 modrm = RAMReadByte(ram, cpu->eip++);
@@ -409,19 +417,39 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                addr = 0;
-                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                if (prefix_size) { // 16-bit
+                    addr = 0;
+                    if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-                a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
+                    a = (mod == 3) ? *get_reg16_ptr(cpu, rm) : RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
 
-                b = RAMRead32(ram, cpu->eip);
-                cpu->eip += 4;
+                    b = RAMReadByte(ram, cpu->eip) | (RAMReadByte(ram, cpu->eip + 1) << 8);
+                    cpu->eip += 2;
 
-                temp = ALU(cpu, reg, a, b);
+                    uint16_t temp = (uint16_t)ALU(cpu, reg, a, b);
 
-                if (reg != 7) {
-                    if (mod == 3) *reg_ptrs[rm] = temp;
-                    else RAMWrite32(ram, addr, temp);
+                    if (reg != 7) {
+                        if (mod == 3) *get_reg16_ptr(cpu, rm) = temp;
+                        else {
+                            RAMWriteByte(ram, addr, temp & 0xFF);
+                            RAMWriteByte(ram, addr + 1, (temp >> 8) & 0xFF);
+                        }
+                    }
+                } else {
+                    addr = 0;
+                    if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+
+                    a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
+
+                    b = RAMRead32(ram, cpu->eip);
+                    cpu->eip += 4;
+
+                    temp = ALU(cpu, reg, a, b);
+
+                    if (reg != 7) {
+                        if (mod == 3) *reg_ptrs[rm] = temp;
+                        else RAMWrite32(ram, addr, temp);
+                    }
                 }
 
                 break;
@@ -953,6 +981,75 @@ uint32_t ALU(CPU *cpu, uint8_t op, uint32_t a, uint32_t b) {
         // Unsupported
         default:
             printf("Unsupported ALU operation %hhX\n", op);
+            CPUState(cpu);
+            exit(1);
+    }
+
+    return temp;
+}
+
+uint16_t ALU16(CPU *cpu, uint8_t op, uint16_t a, uint16_t b) {
+    uint16_t temp = 0;
+
+    switch (op) {
+
+        // ADD
+        case 0:
+            temp = a + b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 15) & 1;
+            cpu->CF = (temp < a);
+            cpu->OF = ((~(a ^ b) & (a ^ temp)) >> 15) & 1;
+            break;
+
+        // OR
+        case 1:
+            temp = a | b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 15) & 1;
+            cpu->CF = 0;
+            cpu->OF = 0;
+            break;
+
+        // AND
+        case 4:
+            temp = a & b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 15) & 1;
+            cpu->CF = 0;
+            cpu->OF = 0;
+            break;
+
+        // SUB
+        case 5:
+            temp = a - b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 15) & 1;
+            cpu->CF = (a < b);
+            cpu->OF = (((a ^ b) & (a ^ temp)) >> 15) & 1;
+            break;
+
+        // XOR
+        case 6:
+            temp = a ^ b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 15) & 1;
+            cpu->CF = 0;
+            cpu->OF = 0;
+            break;
+
+        // CMP
+        case 7:
+            temp = a - b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 15) & 1;
+            cpu->CF = (a < b);
+            cpu->OF = (((a ^ b) & (a ^ temp)) >> 15) & 1;
+            break;
+        
+        // Unsupported
+        default:
+            printf("Unsupported ALU16 operation %hhX\n", op);
             CPUState(cpu);
             exit(1);
     }
