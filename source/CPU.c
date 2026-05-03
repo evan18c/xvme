@@ -13,6 +13,7 @@ uint32_t read_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 void write_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint32_t val);
 uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 uint8_t *get_reg8_ptr(CPU *cpu, uint8_t rm);
+uint16_t *get_reg16_ptr(CPU *cpu, uint8_t rm);
 void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val);
 void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint16_t val);
 uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
@@ -45,6 +46,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
     // Prefixes
     uint8_t prefix_rep;
     uint8_t prefix_fs;
+    uint8_t prefix_size;
 
     while (1) {
 
@@ -64,16 +66,26 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
         // Prefixes
         prefix_rep = 0;
         prefix_fs = 0;
+        prefix_size = 0;
         while (1) {
             uint8_t prefix = RAMReadByte(ram, cpu->eip);
 
             if (prefix == 0x64) {
+                printf("FS!\n");
                 prefix_fs = 1;
                 cpu->eip++;
                 continue;
             }
 
+            if (prefix == 0x66) {
+                printf("SIZE!\n");
+                prefix_size = 1;
+                cpu->eip++;
+                continue;
+            }
+
             if (prefix == 0xF3) {
+                printf("REP!\n");
                 prefix_rep = 1;
                 cpu->eip++;
                 continue;
@@ -461,7 +473,11 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                write_rm32(cpu, ram, reg_ptrs, mod, rm, *reg_ptrs[reg]);
+                if (prefix_size) { // 16-bit prefix
+                    write_rm16(cpu, ram, reg_ptrs, mod, rm, *get_reg16_ptr(cpu, reg));
+                } else {
+                    write_rm32(cpu, ram, reg_ptrs, mod, rm, *reg_ptrs[reg]);
+                }
 
                 break;
 
@@ -611,6 +627,22 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 ret = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
                 cpu->eip = ret;
+                break;
+
+            // MOV r/m8, imm8
+            case 0xC6:
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                addr = 0;
+                if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+
+                imm8 = RAMReadByte(ram, cpu->eip++);
+
+                if (mod == 3) *get_reg8_ptr(cpu, rm) = imm8;
+                else RAMWriteByte(ram, addr, imm8);
                 break;
 
             // MOV r/m32, imm32
@@ -1041,6 +1073,20 @@ uint8_t *get_reg8_ptr(CPU *cpu, uint8_t rm) {
         case 5: return ((uint8_t *)&cpu->ecx) + 1; // CH
         case 6: return ((uint8_t *)&cpu->edx) + 1; // DH
         case 7: return ((uint8_t *)&cpu->ebx) + 1; // BH
+    }
+}
+
+// rm -> reg *
+uint16_t *get_reg16_ptr(CPU *cpu, uint8_t rm) {
+    switch (rm) {
+        case 0: return (uint16_t *)&cpu->eax; // AX
+        case 1: return (uint16_t *)&cpu->ecx; // CX
+        case 2: return (uint16_t *)&cpu->edx; // DX
+        case 3: return (uint16_t *)&cpu->ebx; // BX
+        case 4: return (uint16_t *)&cpu->esp; // SP
+        case 5: return (uint16_t *)&cpu->ebp; // BP
+        case 6: return (uint16_t *)&cpu->esi; // SI
+        case 7: return (uint16_t *)&cpu->edi; // DI
     }
 }
 
