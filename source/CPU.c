@@ -114,7 +114,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 if (mod == 3) {
                     a = *reg_ptrs[rm];
                     b = *reg_ptrs[reg];
-                    *reg_ptrs[rm] += ALU(cpu, 0, a, b);
+                    *reg_ptrs[rm] = ALU(cpu, 0, a, b);
                 } else {
                     addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
                     a = RAMRead32(ram, addr);
@@ -191,7 +191,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                         write_rm8(cpu, ram, reg_ptrs, mod, rm, !cpu->ZF);
                         break;
 
-                    // MOVZX r32, r/m16
+                    // MOVZX r32, r/m8
                     case 0xB6:
                         if (prefix_size) crash66(cpu, opcode);
                         modrm = RAMReadByte(ram, cpu->eip++);
