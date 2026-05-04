@@ -260,6 +260,27 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 break;
             }
 
+            // SUB r/m32, r32
+            case 0x29:
+                if (prefix_size) crash66(cpu, opcode);
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                if (mod == 3) {
+                    a = *reg_ptrs[rm];
+                    b = *reg_ptrs[reg];
+                    *reg_ptrs[rm] = ALU(cpu, 5, a, b);
+                } else {
+                    addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                    a = RAMRead32(ram, addr);
+                    b = *reg_ptrs[reg];
+                    RAMWrite32(ram, addr, ALU(cpu, 5, a, b));
+                }
+
+                break;
+
             // SUB r32, r/m32
             case 0x2B:
                 if (prefix_size) crash66(cpu, opcode);
@@ -543,30 +564,68 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // ADD, SUB, CMP, AND, OR, XOR r/m32, imm8
             case 0x83: {
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                if (prefix_size) {
+
+                    addr = 0;
+                    if (mod != 3) {
+                        addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                    }
+
+                    uint16_t a = (mod == 3) ? *get_reg16_ptr(cpu, rm) : RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
+                    int16_t b = (int8_t)RAMReadByte(ram, cpu->eip++);
+                    
+                    uint16_t temp = ALU16(cpu, reg, a, (uint16_t)b);
+
+                    // not CMP
+                    if (reg != 7) {
+                        if (mod == 3) *get_reg16_ptr(cpu, rm) = temp;
+                        else {
+                            RAMWriteByte(ram, addr, temp & 0xFF);
+                            RAMWriteByte(ram, addr + 1, (temp >> 8) & 0xFF);
+                        }
+                    }
+
+                } else {
+
+                    addr = 0;
+                    if (mod != 3) {
+                        addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                    }
+
+                    a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
+                    b = (int32_t)(int8_t)RAMReadByte(ram, cpu->eip++);
+
+                    temp = ALU(cpu, reg, a, b);
+
+                    // not CMP
+                    if (reg != 7) {
+                        if (mod == 3) *reg_ptrs[rm] = temp;
+                        else RAMWrite32(ram, addr, temp);
+                    }
+
+                }
+                break;
+            }
+
+            // TEST r/m8, r8
+            case 0x84:
                 if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                addr = 0;
-                if (mod != 3) {
-                    addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
-                }
+                a = read_rm8(cpu, ram, reg_ptrs, mod, rm);
+                b = *get_reg8_ptr(cpu, reg);
 
-                a = (mod == 3) ? *reg_ptrs[rm] : RAMRead32(ram, addr);
-                b = (int32_t)(int8_t)RAMReadByte(ram, cpu->eip++);
-
-                temp = ALU(cpu, reg, a, b);
-
-                // not CMP
-                if (reg != 7) {
-                    if (mod == 3) *reg_ptrs[rm] = temp;
-                    else RAMWrite32(ram, addr, temp);
-                }
-
+                ALU(cpu, 4, a, b); // AND
+                
                 break;
-            }
 
             // TEST r/m32, r32
             case 0x85:
@@ -703,6 +762,20 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                     RAMWrite32(ram, cpu->edi, cpu->eax);
                     cpu->edi += 4;
                 }
+                break;
+
+            // MOV r8, imm8
+            case 0xB0:
+            case 0xB1:
+            case 0xB2:
+            case 0xB3:
+            case 0xB4:
+            case 0xB5:
+            case 0xB6:
+            case 0xB7:
+                if (prefix_size) crash66(cpu, opcode);
+                imm8 = RAMReadByte(ram, cpu->eip++);
+                *get_reg8_ptr(cpu, opcode - 0xB0) = imm8;
                 break;
 
             // MOV r32, imm32
