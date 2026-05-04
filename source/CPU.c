@@ -10,6 +10,7 @@
 // Private function prototypes
 uint32_t ALU(CPU *cpu, uint8_t op, uint32_t a, uint32_t b);
 uint16_t ALU16(CPU *cpu, uint8_t op, uint16_t a, uint16_t b);
+uint8_t ALU8(CPU *cpu, uint8_t op, uint8_t a, uint8_t b);
 uint32_t read_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 void write_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint32_t val);
 uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
@@ -18,6 +19,7 @@ uint16_t *get_reg16_ptr(CPU *cpu, uint8_t rm);
 void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val);
 void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint16_t val);
 uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
+uint8_t read_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 void crash66(CPU *cpu, uint8_t opcode);
 
 void CPUState(CPU *cpu) {
@@ -73,21 +75,21 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             uint8_t prefix = RAMReadByte(ram, cpu->eip);
 
             if (prefix == 0x64) {
-                printf("FS at %08X\n", cpu->eip);
+                // printf("FS at %08X\n", cpu->eip);
                 prefix_fs = 1;
                 cpu->eip++;
                 continue;
             }
 
             if (prefix == 0x66) {
-                printf("SIZE at %08X\n", cpu->eip);
+                // printf("SIZE at %08X\n", cpu->eip);
                 prefix_size = 1;
                 cpu->eip++;
                 continue;
             }
 
             if (prefix == 0xF3) {
-                printf("REP at %08X\n", cpu->eip);
+                // printf("REP at %08X\n", cpu->eip);
                 prefix_rep = 1;
                 cpu->eip++;
                 continue;
@@ -100,6 +102,26 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
         uint8_t opcode = RAMReadByte(ram, cpu->eip++);
 
         switch (opcode) {
+
+            // ADD r/m32, r32
+            case 0x01:
+                if (prefix_size) crash66(cpu, opcode);
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                if (mod == 3) {
+                    a = *reg_ptrs[rm];
+                    b = *reg_ptrs[reg];
+                    *reg_ptrs[rm] += ALU(cpu, 0, a, b);
+                } else {
+                    addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                    a = RAMRead32(ram, addr);
+                    b = *reg_ptrs[reg];
+                    RAMWrite32(ram, addr, ALU(cpu, 0, a, b));
+                }
+                break;
 
             // ADD r32, r/m32
             case 0x03:
@@ -167,6 +189,17 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                         rm = modrm & 7;
 
                         write_rm8(cpu, ram, reg_ptrs, mod, rm, !cpu->ZF);
+                        break;
+
+                    // MOVZX r32, r/m16
+                    case 0xB6:
+                        if (prefix_size) crash66(cpu, opcode);
+                        modrm = RAMReadByte(ram, cpu->eip++);
+                        mod = (modrm >> 6) & 3;
+                        reg = (modrm >> 3) & 7;
+                        rm = modrm & 7;
+
+                        *reg_ptrs[reg] = (uint32_t)read_rm8(cpu, ram, reg_ptrs, mod, rm);
                         break;
 
                     // MOVZX r32, r/m16
@@ -441,6 +474,29 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 if (!cpu->ZF && cpu->SF == cpu->OF) cpu->eip += rel8;
                 break;
 
+            // ADD, OR, ADC, SBB, AND, SUB, XOR, CMP r/m8, imm8
+            case 0x80:
+                if (prefix_size) crash66(cpu, opcode);
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                if (mod == 3) {
+                    uint8_t a = *get_reg8_ptr(cpu, rm);
+                    uint8_t b = RAMReadByte(ram, cpu->eip++);
+                    uint8_t res = ALU8(cpu, reg, a, b);
+                    if (reg != 7) *get_reg8_ptr(cpu, rm) = res;
+                } else {
+                    uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                    uint8_t a = RAMReadByte(ram, addr);
+                    uint8_t b = RAMReadByte(ram, cpu->eip++);
+                    uint8_t res = ALU8(cpu, reg, a, b);
+                    if (reg != 7) RAMWriteByte(ram, addr, res);
+                }
+
+                break;
+
             // ADD, OR, ADC, SBB, AND, SUB, XOR, CMP r/m32, imm32
             case 0x81:
                 modrm = RAMReadByte(ram, cpu->eip++);
@@ -527,6 +583,17 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 
                 break;
             
+            // MOV r/m8, r8
+            case 0x88:
+                if (prefix_size) crash66(cpu, opcode);
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                write_rm8(cpu, ram, reg_ptrs, mod, rm, *get_reg8_ptr(cpu, reg));
+                break;
+
             // MOV r/m32, r32
             case 0x89:
                 modrm = RAMReadByte(ram, cpu->eip++);
@@ -540,6 +607,17 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                     write_rm32(cpu, ram, reg_ptrs, mod, rm, *reg_ptrs[reg]);
                 }
 
+                break;
+
+            // MOV r8, r/m8
+            case 0x8A:
+                if (prefix_size) crash66(cpu, opcode);
+                modrm = RAMReadByte(ram, cpu->eip++);
+                mod = (modrm >> 6) & 3;
+                reg = (modrm >> 3) & 7;
+                rm = modrm & 7;
+
+                *get_reg8_ptr(cpu, reg) = read_rm8(cpu, ram, reg_ptrs, mod, rm);
                 break;
 
             // MOV r32, r/m32
@@ -658,6 +736,16 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 uint32_t result = val;
 
                 switch (reg) {
+
+                    // SHL
+                    case 4:
+                        if (imm8 != 0) {
+                            result = val << imm8;
+                            cpu->CF = (val >> (32 - imm8)) & 1;
+                            cpu->ZF = (result == 0);
+                            cpu->SF = (result >> 31) & 1;
+                        }
+                        break;
 
                     // SHR
                     case 5:
@@ -944,6 +1032,24 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
                 switch (reg) {
 
+                    // INC
+                    case 0:
+                        if (mod == 3) {
+                            uint32_t old_CF = cpu->CF;
+                            a = *reg_ptrs[rm];
+                            b = 1;
+                            *reg_ptrs[rm] = ALU(cpu, 0, a, b);
+                            cpu->CF = old_CF;
+                        } else {
+                            uint32_t old_CF = cpu->CF;
+                            addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+                            a = RAMRead32(ram, addr);
+                            b = 1;
+                            RAMWrite32(ram, addr, ALU(cpu, 0, a, b));
+                            cpu->CF = old_CF;
+                        }
+                        break;
+
                     // CALL
                     case 2:
                         dest = read_rm32(cpu, ram, reg_ptrs, mod, rm);
@@ -1126,6 +1232,75 @@ uint16_t ALU16(CPU *cpu, uint8_t op, uint16_t a, uint16_t b) {
     return temp;
 }
 
+uint8_t ALU8(CPU *cpu, uint8_t op, uint8_t a, uint8_t b) {
+    uint8_t temp = 0;
+
+    switch (op) {
+
+        // ADD
+        case 0:
+            temp = a + b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 7) & 1;
+            cpu->CF = (temp < a);
+            cpu->OF = ((~(a ^ b) & (a ^ temp)) >> 7) & 1;
+            break;
+
+        // OR
+        case 1:
+            temp = a | b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 7) & 1;
+            cpu->CF = 0;
+            cpu->OF = 0;
+            break;
+
+        // AND
+        case 4:
+            temp = a & b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 7) & 1;
+            cpu->CF = 0;
+            cpu->OF = 0;
+            break;
+
+        // SUB
+        case 5:
+            temp = a - b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 7) & 1;
+            cpu->CF = (a < b);
+            cpu->OF = (((a ^ b) & (a ^ temp)) >> 7) & 1;
+            break;
+
+        // XOR
+        case 6:
+            temp = a ^ b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 7) & 1;
+            cpu->CF = 0;
+            cpu->OF = 0;
+            break;
+
+        // CMP
+        case 7:
+            temp = a - b;
+            cpu->ZF = (temp == 0);
+            cpu->SF = (temp >> 7) & 1;
+            cpu->CF = (a < b);
+            cpu->OF = (((a ^ b) & (a ^ temp)) >> 7) & 1;
+            break;
+        
+        // Unsupported
+        default:
+            printf("Unsupported ALU8 operation %hhX\n", op);
+            CPUState(cpu);
+            exit(1);
+    }
+
+    return temp;
+}
+
 // Reads from R/M address
 uint32_t read_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm) {
     if (mod == 3) {
@@ -1285,6 +1460,16 @@ uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
     return RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
+}
+
+// Reads from R/M address
+uint8_t read_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm) {
+    if (mod == 3) {
+        return *(uint8_t *)reg_ptrs[rm];
+    }
+
+    uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
+    return RAMReadByte(ram, addr);
 }
 
 // Temporary crash function for unimplemented 0x66 prefix
