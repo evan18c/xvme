@@ -95,6 +95,13 @@ void HandleKernelCall(Xbox *xbox, CPU *cpu, RAM *ram) {
             break;
         }
 
+        // __stdcall RtlInitializeCriticalSection (1 arg)
+        case 291: {
+            printf("RtlInitializeCriticalSection();\n");
+            cpu->esp += 4 * 1;
+            break;
+        }
+
         // __stdcall RtlNtStatusToDosError (1 arg)
         case 301: {
             printf("RtlNtStatusToDosError();\n");

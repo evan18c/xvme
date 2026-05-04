@@ -9,6 +9,7 @@
 
 // Private function prototypes
 uint32_t ALU(CPU *cpu, uint8_t op, uint32_t a, uint32_t b);
+uint16_t ALU16(CPU *cpu, uint8_t op, uint16_t a, uint16_t b);
 uint32_t read_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
 void write_rm32(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint32_t val);
 uint32_t calc_addr(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
@@ -17,6 +18,7 @@ uint16_t *get_reg16_ptr(CPU *cpu, uint8_t rm);
 void write_rm8(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint8_t val);
 void write_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm, uint16_t val);
 uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8_t rm);
+void crash66(CPU *cpu, uint8_t opcode);
 
 void CPUState(CPU *cpu) {
     printf("EAX: 0x%08X EBX: 0x%08X ECX: 0x%08X EDX: 0x%08X\n", cpu->eax, cpu->ebx, cpu->ecx, cpu->edx);
@@ -71,21 +73,21 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             uint8_t prefix = RAMReadByte(ram, cpu->eip);
 
             if (prefix == 0x64) {
-                printf("FS!\n");
+                printf("FS at %08X\n", cpu->eip);
                 prefix_fs = 1;
                 cpu->eip++;
                 continue;
             }
 
             if (prefix == 0x66) {
-                printf("SIZE!\n");
+                printf("SIZE at %08X\n", cpu->eip);
                 prefix_size = 1;
                 cpu->eip++;
                 continue;
             }
 
             if (prefix == 0xF3) {
-                printf("REP!\n");
+                printf("REP at %08X\n", cpu->eip);
                 prefix_rep = 1;
                 cpu->eip++;
                 continue;
@@ -101,6 +103,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // ADD r32, r/m32
             case 0x03:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -114,6 +117,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // ADD EAX, imm32
             case 0x05:
+            if (prefix_size) crash66(cpu, opcode);
                 a = cpu->eax;
                 b = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
@@ -130,6 +134,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                     // JZ rel32
                     // JE rel32
                     case 0x84:
+                        if (prefix_size) crash66(cpu, opcode);
                         rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                         cpu->eip += 4;
                         if (cpu->ZF) cpu->eip += rel32;
@@ -138,6 +143,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                     // JNZ rel32
                     // JNE rel32
                     case 0x85:
+                        if (prefix_size) crash66(cpu, opcode);
                         rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                         cpu->eip += 4;
                         if (!cpu->ZF) cpu->eip += rel32;
@@ -146,6 +152,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                     // JL rel32
                     // JNGE rel32
                     case 0x8C:
+                        if (prefix_size) crash66(cpu, opcode);
                         rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                         cpu->eip += 4;
                         if (cpu->SF != cpu->OF) cpu->eip += rel32;
@@ -153,6 +160,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
                     // SETNZ
                     case 0x95:
+                        if (prefix_size) crash66(cpu, opcode);
                         modrm = RAMReadByte(ram, cpu->eip++);
                         mod = (modrm >> 6) & 3;
                         reg = (modrm >> 3) & 7;
@@ -163,6 +171,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
                     // MOVZX r32, r/m16
                     case 0xB7:
+                        if (prefix_size) crash66(cpu, opcode);
                         modrm = RAMReadByte(ram, cpu->eip++);
                         mod = (modrm >> 6) & 3;
                         reg = (modrm >> 3) & 7;
@@ -183,6 +192,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // AND r32, r/m32
             case 0x23:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -197,6 +207,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // AND AL, imm8
             case 0x24: {
+                if (prefix_size) crash66(cpu, opcode);
                 uint8_t result = *get_reg8_ptr(cpu, 0) & RAMReadByte(ram, cpu->eip++);
                 *get_reg8_ptr(cpu, 0) = result;
 
@@ -209,6 +220,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // AND eax, imm32
             case 0x25: {
+                if (prefix_size) crash66(cpu, opcode);
                 imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->eax = ALU(cpu, 4, cpu->eax, imm32);
@@ -217,6 +229,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // SUB r32, r/m32
             case 0x2B:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -231,6 +244,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // XOR r32, r/m32
             case 0x33:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -244,6 +258,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // CMP r/m32, r32
             case 0x39:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -258,6 +273,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             
             // CMP r32, r/m32
             case 0x3B:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -279,6 +295,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             case 0x45:
             case 0x46:
             case 0x47:
+                if (prefix_size) crash66(cpu, opcode);
                 a = *reg_ptrs[opcode - 0x40];
                 b = 1;
                 temp = a + b;
@@ -297,6 +314,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             case 0x4D:
             case 0x4E:
             case 0x4F:
+                if (prefix_size) crash66(cpu, opcode);
                 a = *reg_ptrs[opcode - 0x48];
                 b = 1;
                 temp = a - b;
@@ -315,6 +333,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             case 0x55:
             case 0x56:
             case 0x57:
+                if (prefix_size) crash66(cpu, opcode);
                 cpu->esp -= 4;
                 RAMWrite32(ram, cpu->esp, *reg_ptrs[opcode - 0x50]);
                 break;
@@ -328,12 +347,14 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             case 0x5D:
             case 0x5E:
             case 0x5F:
+                if (prefix_size) crash66(cpu, opcode);
                 *reg_ptrs[opcode - 0x58] = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
                 break;
 
             // PUSH imm32
             case 0x68:
+                if (prefix_size) crash66(cpu, opcode);
                 imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->esp -= 4;
@@ -342,6 +363,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // PUSH imm8
             case 0x6A: {
+                if (prefix_size) crash66(cpu, opcode);
                 imm8 = RAMReadByte(ram, cpu->eip++);
                 cpu->esp -= 4;
                 int32_t val = (int8_t)imm8;
@@ -353,6 +375,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             // JC rel8
             // JNAE rel8
             case 0x72:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->CF) cpu->eip += rel8;
                 break;
@@ -361,6 +384,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             // JNB rel8
             // JNC rel8
             case 0x73:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (!cpu->CF) cpu->eip += rel8;
                 break;
@@ -368,6 +392,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             // JE rel8
             // JZ rel8
             case 0x74:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->ZF) cpu->eip += rel8;
                 break;
@@ -375,6 +400,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             // JNE rel8
             // JNZ rel8
             case 0x75:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (!cpu->ZF) cpu->eip += rel8;
                 break;
@@ -382,30 +408,35 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             // JBE rel8
             // JNA rel8
             case 0x76:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->CF || cpu->ZF) cpu->eip += rel8;
                 break;
 
             // JL rel8
             case 0x7C:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->SF != cpu->OF) cpu->eip += rel8;
                 break;
 
             // JGE rel8
             case 0x7D:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->SF == cpu->OF) cpu->eip += rel8;
                 break;
 
             // JLE rel8
             case 0x7E:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (cpu->ZF || cpu->SF != cpu->OF) cpu->eip += rel8;
                 break;
             
             // JG rel8
             case 0x7F:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 if (!cpu->ZF && cpu->SF == cpu->OF) cpu->eip += rel8;
                 break;
@@ -421,12 +452,12 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                     addr = 0;
                     if (mod != 3) addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
 
-                    a = (mod == 3) ? *get_reg16_ptr(cpu, rm) : RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
+                    uint16_t a = (mod == 3) ? *get_reg16_ptr(cpu, rm) : RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
 
-                    b = RAMReadByte(ram, cpu->eip) | (RAMReadByte(ram, cpu->eip + 1) << 8);
+                    uint16_t b = RAMReadByte(ram, cpu->eip) | (RAMReadByte(ram, cpu->eip + 1) << 8);
                     cpu->eip += 2;
 
-                    uint16_t temp = (uint16_t)ALU(cpu, reg, a, b);
+                    uint16_t temp = ALU16(cpu, reg, a, b);
 
                     if (reg != 7) {
                         if (mod == 3) *get_reg16_ptr(cpu, rm) = temp;
@@ -456,6 +487,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // ADD, SUB, CMP, AND, OR, XOR r/m32, imm8
             case 0x83: {
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -482,6 +514,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // TEST r/m32, r32
             case 0x85:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -516,12 +549,17 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                 reg = (modrm >> 3) & 7;
                 rm = modrm & 7;
 
-                *reg_ptrs[reg] = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                if (prefix_size) { // 16-bit prefix
+                    *get_reg16_ptr(cpu, reg) = read_rm16(cpu, ram, reg_ptrs, mod, rm);
+                } else {
+                    *reg_ptrs[reg] = read_rm32(cpu, ram, reg_ptrs, mod, rm);
+                }
 
                 break;
             
             // LEA r32, m
             case 0x8D:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -537,11 +575,13 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             
             // CWD CDQ
             case 0x99:
+                if (prefix_size) crash66(cpu, opcode);
                 cpu->edx = (cpu->eax & 0x80000000) ? 0xFFFFFFFF : 0x00000000;
                 break;
 
             // MOV EAX, moffs32
             case 0xA1:
+                if (prefix_size) crash66(cpu, opcode);
                 imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->eax = RAMRead32(ram, imm32);
@@ -549,6 +589,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             
             // MOV moffs32, EAX
             case 0xA3:
+                if (prefix_size) crash66(cpu, opcode);
                 imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 RAMWrite32(ram, imm32, cpu->eax);
@@ -556,6 +597,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // MOVSD
             case 0xA5:
+                if (prefix_size) crash66(cpu, opcode);
                 if (prefix_rep) {
                     while (cpu->ecx != 0) {
                         RAMWrite32(ram, cpu->edi, RAMRead32(ram, cpu->esi));
@@ -572,6 +614,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             
             // STOSD
             case 0xAB:
+                if (prefix_size) crash66(cpu, opcode);
                 if (prefix_rep) {
                     while (cpu->ecx != 0) {
                         RAMWrite32(ram, cpu->edi, cpu->eax);
@@ -593,6 +636,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             case 0xBD:
             case 0xBE:
             case 0xBF:
+                if (prefix_size) crash66(cpu, opcode);
                 imm32 = RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 *reg_ptrs[opcode - 0xB8] = imm32;
@@ -600,6 +644,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // SHR r/m32, imm8
             case 0xC1: {
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -624,6 +669,17 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
                         }
                         break;
 
+                    // SAR
+                    case 7:
+                        if (imm8 != 0) {
+                            result = (uint32_t)((int32_t)val >> imm8);
+                            cpu->CF = (val >> (imm8 - 1)) & 1;
+                            cpu->ZF = (result == 0);
+                            cpu->SF = (result >> 31) & 1;
+                            cpu->OF = 0;
+                        }
+                        break;
+
                     default:
                         printf("Unspported 0xC1 /%hhx\n", reg);
                         CPUState(cpu);
@@ -640,6 +696,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // RET imm16
             case 0xC2:
+                if (prefix_size) crash66(cpu, opcode);
                 imm16 = RAMReadByte(ram, cpu->eip) | (RAMReadByte(ram, cpu->eip + 1) << 8);
                 cpu->eip += 2;
 
@@ -652,6 +709,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // RET
             case 0xC3:
+                if (prefix_size) crash66(cpu, opcode);
                 ret = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
                 cpu->eip = ret;
@@ -659,6 +717,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // MOV r/m8, imm8
             case 0xC6:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -675,6 +734,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // MOV r/m32, imm32
             case 0xC7:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -692,6 +752,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
             
             // LEAVE
             case 0xC9:
+                if (prefix_size) crash66(cpu, opcode);
                 cpu->esp = cpu->ebp;
                 cpu->ebp = RAMRead32(ram, cpu->esp);
                 cpu->esp += 4;
@@ -699,12 +760,14 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // INT3
             case 0xCC:
+                if (prefix_size) crash66(cpu, opcode);
                 printf("INT3\n");
                 CPUState(cpu);
                 exit(0);
             
             // SHR r/m32, 1
             case 0xD1: {
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -742,6 +805,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // CALL rel32
             case 0xE8:
+                if (prefix_size) crash66(cpu, opcode);
                 rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->esp -= 4;
@@ -751,6 +815,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // JMP rel32
             case 0xE9:
+                if (prefix_size) crash66(cpu, opcode);
                 rel32 = (int32_t)RAMRead32(ram, cpu->eip);
                 cpu->eip += 4;
                 cpu->eip += rel32;
@@ -758,12 +823,14 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // JMP rel8
             case 0xEB:
+                if (prefix_size) crash66(cpu, opcode);
                 rel8 = (int8_t)RAMReadByte(ram, cpu->eip++);
                 cpu->eip += rel8;
                 break;
             
             // TEST, NOT, NEG, MUL, IMUL, DIV, IDIV r/m8
             case 0xF6:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -814,6 +881,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // TEST, TEST, NOT, NEG, MUL, IMUL, DIV, IDIV
             case 0xF7:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -868,6 +936,7 @@ void CPURun(Xbox *xbox, CPU *cpu, RAM *ram) {
 
             // INC, DEC, CALL, CALLF, JMP, JMPF, PUSH r/m32
             case 0xFF:
+                if (prefix_size) crash66(cpu, opcode);
                 modrm = RAMReadByte(ram, cpu->eip++);
                 mod = (modrm >> 6) & 3;
                 reg = (modrm >> 3) & 7;
@@ -1216,4 +1285,11 @@ uint16_t read_rm16(CPU *cpu, RAM *ram, uint32_t *reg_ptrs[8], uint8_t mod, uint8
 
     uint32_t addr = calc_addr(cpu, ram, reg_ptrs, mod, rm);
     return RAMReadByte(ram, addr) | (RAMReadByte(ram, addr + 1) << 8);
+}
+
+// Temporary crash function for unimplemented 0x66 prefix
+void crash66(CPU *cpu, uint8_t opcode) {
+    printf("Unsupported 0x66 prefix for %hhX\n", opcode);
+    CPUState(cpu);
+    exit(1);
 }
